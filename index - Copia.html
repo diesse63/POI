@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mappa POI Completa</title>
+
+<!-- LEAFLET CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+<style>
+    /* STILE BASE */
+    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+    #map { height: 100%; width: 100%; z-index: 1; }
+    
+    /* BOTTONI */
+    .btn { padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 3px; font-size: 12px; display: inline-block; text-decoration: none; }
+    .btn.primary { background-color: #007bff; }
+    .btn.secondary { background-color: #6c757d; }
+    .btn.danger { background-color: #dc3545; }
+    .btn.warning { background-color: #ffc107; color: #212529; }
+    .btn.success { background-color: #28a745; }
+    .btn:hover { opacity: 0.9; }
+
+    /* LOGIN & MODALI */
+    #auth-overlay, #admin-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; justify-content: center; align-items: center; }
+    #admin-overlay { z-index: 10000; display: none; }
+    
+    .modal-box { background: white; padding: 25px; border-radius: 8px; width: 300px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+    .modal-box input { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+    .error-msg { color: red; margin-top: 10px; font-size: 13px; }
+
+    /* PANNELLO UTENTE */
+    #user-panel { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 13px; display: none; }
+    #user-panel a { color: #dc3545; margin-left: 10px; text-decoration: none; cursor: pointer; font-weight: bold; }
+    #user-list { margin-top: 15px; max-height: 200px; overflow-y: auto; text-align: left; border-top: 1px solid #eee; }
+    .user-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+
+    /* UI MAPPA */
+    #bottom-left-controls { position: absolute; bottom: 20px; left: 10px; z-index: 900; display: flex; flex-direction: column-reverse; gap: 10px; }
+    #legend-container { position: absolute; bottom: 20px; right: 10px; z-index: 900; text-align: right; }
+    
+    #poi-table-wrapper, #legend { background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: none; }
+    #poi-table-wrapper.visible, #legend.visible { display: block; }
+    #poi-table-wrapper { max-height: 300px; overflow-y: auto; width: 300px; background: rgba(255,255,255,0.95); }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #f0f0f0; text-align: left; padding: 5px; position: sticky; top: 0; }
+    td { border-bottom: 1px solid #ddd; padding: 5px; }
+    .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 12px; }
+    .legend-color { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; border: 1px solid #666; }
+    
+    /* --- STILE FORM POPUP (CORRETTO) --- */
+    .poi-form { 
+        width: 260px; /* Larghezza fissa per evitare sbordamenti */
+        display: flex; 
+        flex-direction: column; 
+    }
+    
+    .poi-form label { 
+        font-weight: bold; 
+        margin: 6px 0 2px; 
+        font-size: 11px; 
+    }
+    
+    .poi-form input, .poi-form select, .poi-form textarea { 
+        width: 100%; 
+        padding: 6px; /* Padding ridotto */
+        border: 1px solid #ccc; 
+        border-radius: 4px; 
+        box-sizing: border-box; /* IMPORTANTE: Mantiene il padding dentro la larghezza */
+        font-family: inherit; 
+        font-size: 12px; 
+    }
+    
+    .poi-form textarea { 
+        min-height: 60px; 
+        resize: vertical; 
+    }
+    
+    .popup-actions { margin-top: 10px; text-align: right; }
+    
+    .poi-note-display { white-space: pre-wrap; max-height: 120px; overflow-y: auto; background: #f9f9f9; padding: 5px; border: 1px solid #eee; border-radius: 3px; margin-top: 3px; font-size: 12px; }
+    
+    /* Riduce leggermente il padding del popup Leaflet stesso */
+    .leaflet-popup-content { margin: 10px; }
+    .leaflet-control-geocoder { z-index: 800; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="auth-overlay">
+    <div class="modal-box">
+        <h2>LOGIN</h2>
+        <input type="text" id="auth-user" placeholder="Username (es. bologna)">
+        <input type="password" id="auth-pass" placeholder="Password (Solo per Admin)">
+        <button class="btn primary" id="btn-login" style="width:100%">ENTRA</button>
+        <div id="auth-error" class="error-msg"></div>
+    </div>
+</div>
+
+<!-- GESTIONE UTENTI (Admin) -->
+<div id="admin-overlay">
+    <div class="modal-box">
+        <h3>Gestione Utenti</h3>
+        <div style="background:#f9f9f9; padding:10px; border-radius:5px; margin-bottom:10px;">
+            <p style="font-size:12px; margin:0 0 5px 0;">Crea utente (Senza password)</p>
+            <input type="text" id="new-user-name" placeholder="Nome Utente (es. milano)">
+            <button class="btn primary" onclick="createNewUser()" style="width:100%">Crea Utente</button>
+        </div>
+        <strong>Lista Utenti:</strong>
+        <div id="user-list">Caricamento...</div>
+        <button class="btn secondary" style="margin-top:15px;" onclick="closeAdminPanel()">Chiudi</button>
+    </div>
+</div>
+
+<!-- PANNELLO UTENTE -->
+<div id="user-panel">
+    Ciao, <span id="display-username">User</span>
+    <button id="btn-admin-users" class="btn warning" style="display:none; margin-left:10px;" onclick="openAdminPanel()">Gestione Utenti</button>
+    <a onclick="logout()">Esci</a>
+</div>
+
+<!-- TABELLA -->
+<div id="bottom-left-controls">
+    <button id="btn-toggle-table" class="btn secondary">Mostra Elenco POI</button>
+    <div id="poi-table-wrapper"></div>
+</div>
+
+<!-- LEGENDA -->
+<div id="legend-container">
+    <button id="btn-toggle-legend" class="btn secondary">Legenda</button>
+    <div id="legend"><div id="legend-content"></div></div>
+</div>
+
+<div id="map"></div>
+
+<!-- JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+const API_URL = 'http://localhost:3000';
+let map, poiLayer, tipologie = [], markers = {}, cachedPois = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    if(localStorage.getItem('poi_token')) initApp();
+    
+    // Login
+    document.getElementById('btn-login').addEventListener('click', async () => {
+        const u = document.getElementById('auth-user').value;
+        const p = document.getElementById('auth-pass').value;
+        try {
+            const res = await fetch(`${API_URL}/login`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            if(res.ok) {
+                localStorage.setItem('poi_token', data.token);
+                localStorage.setItem('poi_user', data.username);
+                localStorage.setItem('poi_role', data.role);
+                location.reload();
+            } else {
+                document.getElementById('auth-error').innerText = data.error;
+            }
+        } catch(e) { document.getElementById('auth-error').innerText = "Errore server"; }
+    });
+
+    // Toggle Pannelli
+    document.getElementById('btn-toggle-legend').onclick = () => document.getElementById('legend').classList.toggle('visible');
+    document.getElementById('btn-toggle-table').onclick = () => {
+        const t = document.getElementById('poi-table-wrapper');
+        t.classList.toggle('visible');
+        if(t.classList.contains('visible')) populateTable();
+    };
+});
+
+function logout() { localStorage.clear(); location.reload(); }
+
+async function initApp() {
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('user-panel').style.display = 'block';
+    
+    const user = localStorage.getItem('poi_user');
+    const role = localStorage.getItem('poi_role');
+    document.getElementById('display-username').innerText = user;
+
+    if(role === 'admin') {
+        document.getElementById('btn-admin-users').style.display = 'inline-block';
+    }
+
+    initMap();
+    await loadTipologie(); 
+    await loadPOI();       
+}
+
+// --- GESTIONE UTENTI (ADMIN) ---
+function openAdminPanel() {
+    document.getElementById('admin-overlay').style.display = 'flex';
+    loadUserList();
+}
+function closeAdminPanel() { document.getElementById('admin-overlay').style.display = 'none'; }
+
+async function loadUserList() {
+    const listDiv = document.getElementById('user-list');
+    listDiv.innerHTML = "Caricamento...";
+    try {
+        const res = await apiCall('/users', 'GET');
+        const users = await res.json();
+        let html = '';
+        users.forEach(u => {
+            const isMe = u.username === localStorage.getItem('poi_user');
+            const delBtn = isMe ? '<small>(Tu)</small>' : `<button class="btn danger" style="padding:2px 6px" onclick="deleteUser(${u.id})">X</button>`;
+            html += `<div class="user-row"><span><b>${u.username}</b> (${u.role})</span>${delBtn}</div>`;
+        });
+        listDiv.innerHTML = html;
+    } catch(e) { listDiv.innerHTML = "Errore caricamento"; }
+}
+
+async function createNewUser() {
+    const u = document.getElementById('new-user-name').value;
+    if(!u) return alert("Inserisci username");
+    const res = await apiCall('/users', 'POST', {username: u});
+    if(res.ok) {
+        alert("Utente creato!");
+        document.getElementById('new-user-name').value = '';
+        loadUserList(); 
+    } else {
+        const d = await res.json();
+        alert("Errore: " + d.error);
+    }
+}
+
+async function deleteUser(id) {
+    if(!confirm("Eliminare utente? Verranno cancellati anche tutti i suoi POI.")) return;
+    const res = await apiCall(`/users/${id}`, 'DELETE');
+    if(res.ok) loadUserList();
+    else alert("Errore eliminazione");
+}
+
+function initMap() {
+    map = L.map('map').setView([42.76, 11.11], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    poiLayer = L.layerGroup().addTo(map);
+
+    L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "Cerca...", position: 'topleft' })
+    .on('markgeocode', function(e) {
+        const bbox = e.geocode.bbox;
+        const poly = L.polygon([
+            bbox.getSouthEast(), bbox.getNorthEast(), bbox.getNorthWest(), bbox.getSouthWest()
+        ]);
+        map.fitBounds(poly.getBounds());
+        let shortName = e.geocode.name.split(',')[0];
+        openAddForm(e.geocode.center, shortName);
+    })
+    .addTo(map);
+
+    map.on('dblclick', e => openAddForm(e.latlng));
+}
+
+async function loadTipologie() {
+    try {
+        const res = await fetch(`${API_URL}/tipologie`);
+        tipologie = await res.json();
+        const con = document.getElementById('legend-content');
+        con.innerHTML = '';
+        tipologie.forEach(t => {
+            con.innerHTML += `<div class="legend-item"><div class="legend-color" style="background:${t.Colore}"></div>${t.Tipo}</div>`;
+        });
+    } catch(e) { console.error("Errore Tipologie", e); }
+}
+
+async function loadPOI() {
+    try {
+        const res = await apiCall('/pois', 'GET');
+        if(!res.ok) return logout();
+        const pois = await res.json();
+        cachedPois = pois;
+        
+        poiLayer.clearLayers();
+        markers = {};
+
+        pois.forEach(p => {
+            const tipo = tipologie.find(t => t.IDTipo == p.type);
+            const color = tipo ? tipo.Colore : 'gray'; 
+            const typeName = tipo ? tipo.Tipo : '-';
+
+            const m = L.circleMarker([p.lat, p.lng], { radius: 8, fillColor: color, color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8 }).addTo(poiLayer);
+            markers[p.id] = m;
+            m.bindPopup(createPopup(p, typeName));
+        });
+        if(document.getElementById('poi-table-wrapper').classList.contains('visible')) populateTable();
+    } catch(e) { console.error("Errore POI", e); }
+}
+
+function createPopup(p, typeName) {
+    const isOwner = localStorage.getItem('poi_user') === p.owner || localStorage.getItem('poi_role') === 'admin';
+    let noteHtml = p.note ? `<div class="poi-note-display">${p.note}</div>` : '<i>Nessuna nota</i>';
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+
+    let h = `<b>${p.name}</b><br><small>${typeName}</small><br>${noteHtml}`;
+    if(p.link) h += `<br><a href="${p.link}" target="_blank">Link Info</a>`;
+    h += `<div style="margin-top:8px; margin-bottom:5px;">
+            <a href="${mapsUrl}" target="_blank" class="btn success">Naviga</a>
+          </div>`;
+
+    if(isOwner) h += `<div class="popup-actions"><button class="btn warning" onclick="openEdit(${p.id})">Modifica</button><button class="btn danger" onclick="del(${p.id})">Elimina</button></div>`;
+    return h;
+}
+
+function populateTable() {
+    const container = document.getElementById('poi-table-wrapper');
+    if(!cachedPois.length) { container.innerHTML = "Nessun punto."; return; }
+    let h = `<table><thead><tr><th>Nome</th><th>Tipo</th><th>Vai</th></tr></thead><tbody>`;
+    cachedPois.forEach(p => {
+        const tipo = tipologie.find(t => t.IDTipo == p.type);
+        h += `<tr><td>${p.name}</td><td>${tipo?tipo.Tipo:'-'}</td><td><button class="btn primary" onclick="fly(${p.id}, ${p.lat}, ${p.lng})">Go</button></td></tr>`;
+    });
+    container.innerHTML = h + `</tbody></table>`;
+}
+
+function fly(id, lat, lng) {
+    map.setView([lat, lng], 16);
+    if(markers[id]) markers[id].openPopup();
+}
+
+function openAddForm(ll, name = '') {
+    const opts = tipologie.map(t => `<option value="${t.IDTipo}">${t.Tipo}</option>`).join('');
+    
+    const h = `
+    <div class="poi-form">
+        <label>Nome</label>
+        <input id="fn" value="${name}"> 
+        <label>Tipo</label><select id="ft">${opts}</select>
+        <label>Note</label>
+        <textarea id="fnt" placeholder="Scrivi qui..."></textarea>
+        <label>Link</label><input id="fl">
+        <div class="popup-actions">
+            <button class="btn primary" onclick="saveNew(${ll.lat},${ll.lng})">Salva</button>
+        </div>
+    </div>`;
+    
+    // Imposta la larghezza minima del popup per adattarsi al CSS .poi-form
+    L.popup({ minWidth: 280 }).setLatLng(ll).setContent(h).openOn(map);
+}
+
+async function saveNew(lat, lng) {
+    const body = { name: document.getElementById('fn').value, type: document.getElementById('ft').value, note: document.getElementById('fnt').value, link: document.getElementById('fl').value, lat: lat, lng: lng };
+    await apiCall('/pois', 'POST', body);
+    map.closePopup(); loadPOI();
+}
+
+function openEdit(id) {
+    const p = cachedPois.find(x => x.id == id);
+    if(!p) return;
+    const opts = tipologie.map(t => `<option value="${t.IDTipo}" ${t.IDTipo == p.type ? 'selected':''}>${t.Tipo}</option>`).join('');
+    
+    const h = `
+    <div class="poi-form">
+        <label>Nome</label><input id="en" value="${p.name}">
+        <label>Tipo</label><select id="et">${opts}</select>
+        <label>Note</label><textarea id="ent">${p.note||''}</textarea>
+        <label>Link</label><input id="el" value="${p.link||''}">
+        <div class="popup-actions">
+            <button class="btn primary" onclick="saveEdit(${id})">Aggiorna</button>
+        </div>
+    </div>`;
+    
+    markers[id].bindPopup(h, { minWidth: 280 }).openPopup();
+}
+
+async function saveEdit(id) {
+    const body = { name: document.getElementById('en').value, type: document.getElementById('et').value, note: document.getElementById('ent').value, link: document.getElementById('el').value };
+    await apiCall(`/pois/${id}`, 'PUT', body);
+    map.closePopup(); loadPOI();
+}
+
+async function del(id) {
+    if(confirm("Eliminare definitivamente?")) { await apiCall(`/pois/${id}`, 'DELETE'); map.closePopup(); loadPOI(); }
+}
+
+async function apiCall(endpoint, method, body=null) {
+    const opts = { method: method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('poi_token')}` } };
+    if(body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${API_URL}${endpoint}`, opts);
+    return res;
+}
+</script>
+</body>
+</html>
