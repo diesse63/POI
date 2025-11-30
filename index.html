@@ -13,11 +13,11 @@
 <style>
     /* --- RESET E LAYOUT BASE --- */
     html, body {
-        height: 100vh; /* Forza altezza schermo intero */
+        height: 100vh;
         width: 100vw;
         margin: 0;
         padding: 0;
-        overflow: hidden; /* Blocca scrollbar indesiderate */
+        overflow: hidden;
         font-family: Arial, sans-serif;
     }
 
@@ -29,22 +29,22 @@
         top: 0;
         left: 0;
         z-index: 1;
-        background: #e5e5e5; /* Colore di sfondo durante il caricamento */
+        background: #e5e5e5;
     }
 
-    /* --- LIVELLO INTERFACCIA (SOPRA LA MAPPA) --- */
+    /* --- LIVELLO INTERFACCIA --- */
     #refresh-container, #bottom-left-controls, #legend-container {
         position: absolute;
         z-index: 1000;
-        pointer-events: none; /* Lascia passare i click verso la mappa */
+        pointer-events: none;
     }
 
-    /* Riabilita i click sugli elementi interattivi */
+    /* Riabilita i click */
     #refresh-btn, .btn, #legend, #poi-table-wrapper, .leaflet-control-geocoder {
         pointer-events: auto;
     }
 
-    /* POSIZIONAMENTO ELEMENTI */
+    /* POSIZIONAMENTO */
     #refresh-container { top: 10px; right: 10px; }
     #bottom-left-controls { bottom: 10px; left: 10px; display: flex; align-items: flex-end; gap: 10px; }
     #legend-container { bottom: 10px; right: 10px; text-align: right; }
@@ -86,7 +86,11 @@
     .btn-delete { background-color: #dc3545; }
     .btn-navigate { background-color: #28a745; }
     .btn-edit { background-color: #ffc107; color: #212529; }
+    
+    /* Bottoni Tabella */
     .btn-select-poi { padding: 4px 8px; font-size: 12px; background-color: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-delete-poi-table { padding: 4px 8px; font-size: 12px; background-color: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px; }
+    .btn-delete-poi-table:hover { background-color: #bd2130; }
 
     /* FORM STYLES */
     .poi-form label { display: block; margin: 8px 0 3px; font-weight: 700; font-size: 14px; }
@@ -96,20 +100,14 @@
     /* STILE GEOCODER (RICERCA) */
     .leaflet-control-geocoder-icon { width: 30px; height: 30px; border-radius: 4px; }
     .leaflet-control-geocoder-form input { font-size: 14px; padding: 5px; }
-    
-    /* Spazio extra per staccare la ricerca dallo zoom in alto a sinistra */
     .leaflet-touch .leaflet-control-geocoder { margin-top: 10px; }
 </style>
 </head>
 <body>
 
-    <!-- Mappa -->
     <div id="map"></div>
-
-    <!-- Bottone Refresh in alto a destra -->
     <div id="refresh-container"><a href="javascript:location.reload();" id="refresh-btn" title="Aggiorna">&#x21BB;</a></div>
     
-    <!-- Controlli in basso a sinistra (Tabella) -->
     <div id="bottom-left-controls">
         <div id="poi-table-container-wrapper">
             <button id="toggle-poi-table-btn" class="btn secondary">Mostra POI</button>
@@ -117,7 +115,6 @@
         </div>
     </div>
 
-    <!-- Legenda in basso a destra -->
     <div id="legend-container">
         <button id="toggle-legend-btn" class="btn secondary">Legenda</button>
         <div id="legend">
@@ -126,11 +123,9 @@
         </div>
     </div>
 
-    <!-- Librerie JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
-    <!-- LOGICA APPLICAZIONE -->
     <script>
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbyR0Km5Mk8QrjEsDneZG97U3zFLgvM5laL2z3awBizFdn9VUK40XZfEk25BaYxaysR9/exec';
     
@@ -142,7 +137,7 @@
     let poiDataStore = [];
 
     document.addEventListener('DOMContentLoaded', () => {
-        // 1. Gestione click Legenda
+        // Legenda
         const toggleLegendBtn = document.getElementById('toggle-legend-btn');
         const legend = document.getElementById('legend');
         toggleLegendBtn.addEventListener('click', () => {
@@ -150,7 +145,7 @@
             toggleLegendBtn.textContent = legend.classList.contains('visible') ? 'Nascondi Legenda' : 'Mostra Legenda';
         });
 
-        // 2. Gestione click Tabella POI
+        // Tabella POI
         const togglePoiTableBtn = document.getElementById('toggle-poi-table-btn');
         const poiTableWrapper = document.getElementById('poi-table-wrapper');
         togglePoiTableBtn.addEventListener('click', async () => {
@@ -161,34 +156,18 @@
             }
         });
 
-        // 3. Avvia Mappa
         initMap();
     });
 
     function initMap() {
-        console.log("Inizializzazione mappa...");
-        
-        // Creazione oggetto mappa
         map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-        
-        // Layer OpenStreetMap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-            attribution: '© OpenStreetMap' 
-        }).addTo(map);
-
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
         poiLayerGroup = L.layerGroup().addTo(map);
-        
-        // Fix: Forza ricalcolo dimensioni dopo un attimo per evitare bug grafici
         setTimeout(() => { map.invalidateSize(); }, 200);
-
         showCurrentLocation();
         
-        // Doppio click per aggiungere manualmente un punto
         map.on('dblclick', (e) => openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''}));
         
-        // --- RICERCA OPENSTREETMAP ---
-        // position: 'topleft' mette il bottone a sinistra.
-        // Essendo aggiunto DOPO la mappa (che crea lo Zoom di default), si posiziona SOTTO lo zoom.
         const geocoder = L.Control.geocoder({
             defaultMarkGeocode: false,
             position: 'topleft', 
@@ -198,30 +177,22 @@
         .on('markgeocode', function(e) {
             const result = e.geocode;
             map.fitBounds(result.bbox);
-            
-            // LOGICA NOME: Prendi tutto prima della prima virgola
             let fullName = result.name || '';
             let shortName = fullName.split(',')[0].trim();
-            
-            // Apri form di inserimento
             openPoiForm({ lat: result.center.lat, lng: result.center.lng, name: shortName });
         })
         .addTo(map);
 
-        // Carica dati iniziali
         loadTipologie().then(() => loadPOI());
     }
 
     // --- CARICAMENTO DATI ---
-
     async function loadPOI() {
         try {
             const res = await fetch(`${GAS_URL}?action=listPOI`);
             if (!res.ok) throw new Error(`Status: ${res.status}`);
-            const data = await res.json();
-            poiDataStore = data; // Salva in memoria
+            poiDataStore = await res.json();
             
-            // Disegna i marker
             poiLayerGroup.clearLayers();
             if(currentLocationMarker) currentLocationMarker.addTo(poiLayerGroup);
             markerReferences = {};
@@ -233,204 +204,118 @@
                 
                 const tipo = tipologie.find(t => String(t.id) === String(p.IDTipo).trim());
                 const marker = L.circleMarker(coords, { 
-                    radius: 8, 
-                    fillColor: tipo ? tipo.colore : 'blue', 
-                    color: "#000", 
-                    weight: 1, 
-                    opacity: 1, 
-                    fillOpacity: 0.8 
+                    radius: 8, fillColor: tipo ? tipo.colore : 'blue', color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8 
                 }).addTo(poiLayerGroup);
                 
                 if (p.IDLuoghi) {
                     marker.poiId = p.IDLuoghi;
-                    markerReferences[p.IDLuoghi] = marker; // Salva riferimento per la tabella
-                    
-                    // Crea popup
+                    markerReferences[p.IDLuoghi] = marker;
                     marker.bindPopup(() => createPopupContent(p.IDLuoghi), { minWidth: 280 });
-                    
-                    // Gestione eventi dentro il popup
                     marker.on('popupopen', (e) => {
                         const popupNode = e.popup.getElement();
                         L.DomEvent.on(popupNode, 'click', L.DomEvent.stopPropagation);
-                        
                         const btnDel = popupNode.querySelector('.btn-delete');
-                        if(btnDel) btnDel.onclick = () => { if (confirm("Sei sicuro di voler eliminare questo POI?")) deletePOI(p.IDLuoghi); };
-                        
+                        if(btnDel) btnDel.onclick = () => { if (confirm("Eliminare POI?")) deletePOI(p.IDLuoghi); };
                         const btnEdit = popupNode.querySelector('.btn-edit');
                         if(btnEdit) btnEdit.onclick = () => openPoiEditForm(p.IDLuoghi);
                     });
                 }
             });
-            console.log("POI Caricati:", poiDataStore.length);
-        } catch(e) { 
-            console.error("Errore caricamento POI:", e);
-        }
+        } catch(e) { console.error("Errore POI:", e); }
     }
 
     async function loadTipologie() {
         try {
             const res = await fetch(`${GAS_URL}?action=listTipologia`);
-            if (!res.ok) throw new Error("Errore HTTP");
             const data = await res.json();
-            
-            // Pulisce e mappa i dati
-            tipologie = data.map(t => ({ 
-                id: String(t.IDTipo).trim(), 
-                nome: t.Tipo, 
-                colore: t.Colore ? String(t.Colore).toLowerCase() : 'gray' 
-            }));
-            
-            // Aggiorna HTML Legenda
+            tipologie = data.map(t => ({ id: String(t.IDTipo).trim(), nome: t.Tipo, colore: t.Colore ? String(t.Colore).toLowerCase() : 'gray' }));
             const lc = document.getElementById('legend-content');
             if(lc) {
                 lc.innerHTML = '';
-                tipologie.forEach(t => { 
-                    lc.innerHTML += `<div class="legend-item"><span class="legend-color" style="background-color:${t.colore}"></span>${t.nome}</div>`; 
-                });
+                tipologie.forEach(t => { lc.innerHTML += `<div class="legend-item"><span class="legend-color" style="background-color:${t.colore}"></span>${t.nome}</div>`; });
             }
-        } catch(e) { 
-            console.warn("Errore caricamento tipologie (uso array vuoto):", e);
-            tipologie = [];
-        }
+        } catch(e) { tipologie = []; }
     }
 
-    // --- GESTIONE TABELLA (Versione Protetta da Blocchi) ---
-
+    // --- TABELLA (MODIFICATA CON TASTO CANCELLA) ---
     async function populatePoiTable() {
         const wrapper = document.getElementById('poi-table-wrapper');
         wrapper.innerHTML = '<p style="padding:10px; color:#666;">Caricamento...</p>';
-        
         try {
-            // Se non abbiamo dati, proviamo a ricaricarli
-            if (!poiDataStore || poiDataStore.length === 0) {
-                await loadPOI();
-            }
-            if (!tipologie || tipologie.length === 0) {
-                await loadTipologie();
-            }
+            if (!poiDataStore || !poiDataStore.length) await loadPOI();
+            if (!tipologie || !tipologie.length) await loadTipologie();
 
-            // Se ancora vuoti, avvisa
-            if (!poiDataStore || poiDataStore.length === 0) {
+            if (!poiDataStore || !poiDataStore.length) {
                 wrapper.innerHTML = '<p style="padding:10px;">Nessun POI trovato.</p>';
                 return;
             }
 
-            // Ordina per nome
-            const sorted = [...poiDataStore].sort((a,b) => {
-                const nameA = a.Name ? String(a.Name).toLowerCase() : '';
-                const nameB = b.Name ? String(b.Name).toLowerCase() : '';
-                return nameA.localeCompare(nameB);
-            });
-
-            // Costruisci HTML
-            let html = `<table id="poi-table" style="width:100%;"><thead><tr><th>Nome</th><th>Tipo</th><th>Vai</th></tr></thead><tbody>`;
+            const sorted = [...poiDataStore].sort((a,b) => (a.Name || '').localeCompare(b.Name || ''));
+            let html = `<table id="poi-table" style="width:100%;"><thead><tr><th>Nome</th><th>Tipo</th><th>Azioni</th></tr></thead><tbody>`;
             
             sorted.forEach(p => {
                 const coordsStr = String(p.Coordinate || '');
                 const coords = coordsStr.split(',');
                 
-                let btnHtml = '-';
-                // Mostra bottone solo se coordinate valide
+                let buttonsHtml = '';
+                // Tasto VAI
                 if (coords.length >= 2 && !isNaN(parseFloat(coords[0]))) {
-                     btnHtml = `<button class="btn-select-poi" data-id="${p.IDLuoghi}" data-lat="${coords[0]}" data-lng="${coords[1]}">Vai</button>`;
+                     buttonsHtml += `<button class="btn-select-poi" data-id="${p.IDLuoghi}" data-lat="${coords[0]}" data-lng="${coords[1]}">Vai</button>`;
                 }
+                // Tasto CANCELLA (X)
+                buttonsHtml += `<button class="btn-delete-poi-table" data-id="${p.IDLuoghi}" data-name="${p.Name || 'questo POI'}" title="Elimina">X</button>`;
 
                 const tipoObj = tipologie.find(t => String(t.id) === String(p.IDTipo).trim());
-                const nomeTipo = tipoObj ? tipoObj.nome : 'N/D';
-
-                html += `<tr>
-                            <td>${p.Name || '(No nome)'}</td>
-                            <td>${nomeTipo}</td>
-                            <td style="text-align:center;">${btnHtml}</td>
-                         </tr>`;
+                html += `<tr><td>${p.Name || '-'}</td><td>${tipoObj ? tipoObj.nome : 'N/D'}</td><td style="white-space:nowrap;">${buttonsHtml}</td></tr>`;
             });
             
             html += `</tbody></table>`;
             wrapper.innerHTML = html;
 
-            // Aggiungi listener per i bottoni "Vai"
             const tbody = wrapper.querySelector('tbody');
             if (tbody) {
                 tbody.onclick = (e) => {
+                    // Cliccato "Vai"
                     if(e.target.classList.contains('btn-select-poi')) {
                         const d = e.target.dataset;
-                        // Chiudi tabella
                         wrapper.classList.remove('visible');
                         document.getElementById('toggle-poi-table-btn').textContent = 'Mostra POI';
-                        
-                        // Zoom sulla mappa
                         map.setView([d.lat, d.lng], 17);
-                        if (markerReferences[d.id]) {
-                            markerReferences[d.id].openPopup();
+                        if (markerReferences[d.id]) markerReferences[d.id].openPopup();
+                    }
+                    // Cliccato "X" (Cancella)
+                    else if (e.target.classList.contains('btn-delete-poi-table')) {
+                        const id = e.target.dataset.id;
+                        const nome = e.target.dataset.name;
+                        if (confirm(`Sei sicuro di voler eliminare definitivamente "${nome}"?`)) {
+                            deletePOI(id);
                         }
                     }
                 };
             }
-
         } catch (e) {
-            console.error("Errore Tabella:", e);
-            wrapper.innerHTML = `<p style="padding:10px; color:red;">Errore visualizzazione dati.</p>`;
+            wrapper.innerHTML = `<p style="padding:10px; color:red;">Errore: ${e.message}</p>`;
         }
     }
 
-    // --- FORM POPUP (Inserimento e Modifica) ---
-
+    // --- FORM POPUP E AZIONI ---
     function createPopupContent(poiId) {
         const poiData = poiDataStore.find(p => p.IDLuoghi === poiId);
         if (!poiData) return 'Errore dati.';
         const tipo = tipologie.find(t => String(t.id) === String(poiData.IDTipo).trim());
-        
-        const content = `
-            <b>${poiData.Name || 'Senza nome'}</b><br>
-            Tipo: ${tipo ? tipo.nome : '...'}<br>
-            ${poiData.Note || ''}<br>
-            ${poiData.Link ? `<a href="${poiData.Link}" target="_blank">Link</a>` : ''}
-        `;
-        
-        const buttons = `
-            <div style="margin-top:8px; display:flex; gap:5px;">
-                <a href="https://www.google.com/maps/dir/?api=1&destination=${poiData.Coordinate}" target="_blank" class="btn btn-navigate" style="font-size:12px;">Maps</a>
-                <button class="btn btn-edit" style="font-size:12px;">Modif</button>
-                <button class="btn btn-delete" style="font-size:12px;">Elim</button>
-            </div>
-        `;
-        return content + buttons;
+        const content = `<b>${poiData.Name || 'Senza nome'}</b><br>Tipo: ${tipo ? tipo.nome : '...'}<br>${poiData.Note || ''}<br>${poiData.Link ? `<a href="${poiData.Link}" target="_blank">Link</a>` : ''}`;
+        return `${content}<div style="margin-top:8px; display:flex; gap:5px;"><a href="https://www.google.com/maps/dir/?api=1&destination=${poiData.Coordinate}" target="_blank" class="btn btn-navigate" style="font-size:12px;">Maps</a><button class="btn btn-edit" style="font-size:12px;">Modif</button><button class="btn btn-delete" style="font-size:12px;">Elim</button></div>`;
     }
 
     function openPoiForm({lat, lng, name}) { 
-        const form = document.createElement('div'); 
-        form.className = 'poi-form'; 
+        const form = document.createElement('div'); form.className = 'poi-form'; 
         const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join(''); 
-        
-        form.innerHTML = `
-            <label>Nome</label><input id="form-name" type="text" value="${name || ''}" />
-            <label>Tipo</label><select id="form-tipologia">${tipoOptions}</select>
-            <label>Note</label><textarea id="form-note" rows="3"></textarea>
-            <label>Link</label><input id="form-link" type="text" placeholder="https://..." />
-            <div style="margin-top:10px;text-align:right;">
-                <button id="btn-canc" class="btn secondary">Annul</button>
-                <button id="btn-save" class="btn primary">Salva</button>
-            </div>
-        `; 
-        
-        const popup = L.popup({maxWidth:300})
-            .setLatLng([lat,lng])
-            .setContent(form)
-            .openOn(map); 
-        
-        // Timeout per assicurare che il DOM del popup sia pronto
+        form.innerHTML = `<label>Nome</label><input id="form-name" type="text" value="${name || ''}" /><label>Tipo</label><select id="form-tipologia">${tipoOptions}</select><label>Note</label><textarea id="form-note" rows="3"></textarea><label>Link</label><input id="form-link" type="text" placeholder="https://..." /><div style="margin-top:10px;text-align:right;"><button id="btn-canc" class="btn secondary">Annul</button><button id="btn-save" class="btn primary">Salva</button></div>`; 
+        const popup = L.popup({maxWidth:300}).setLatLng([lat,lng]).setContent(form).openOn(map); 
         setTimeout(() => {
             document.getElementById('btn-canc').addEventListener('click', () => map.closePopup()); 
             document.getElementById('btn-save').addEventListener('click', () => { 
-                const payload = { 
-                    action: 'addPOI', 
-                    Name: document.getElementById('form-name').value.trim(), 
-                    Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`, 
-                    IDTipo: document.getElementById('form-tipologia').value, 
-                    Note: document.getElementById('form-note').value.trim(), 
-                    Link: document.getElementById('form-link').value.trim() 
-                };
-                addPOI(payload); 
+                addPOI({ action: 'addPOI', Name: document.getElementById('form-name').value.trim(), Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`, IDTipo: document.getElementById('form-tipologia').value, Note: document.getElementById('form-note').value.trim(), Link: document.getElementById('form-link').value.trim() }); 
             });
         }, 100);
     }
@@ -438,66 +323,33 @@
     function openPoiEditForm(poiId) {
         const p = poiDataStore.find(x => x.IDLuoghi === poiId);
         if (!p) return;
-        
         const form = document.createElement('div'); form.className = 'poi-form';
         const tipoOpts = tipologie.map(t=>`<option value="${t.id}" ${String(t.id) === String(p.IDTipo).trim() ? 'selected':''}>${t.nome}</option>`).join('');
-        
-        form.innerHTML = `
-            <label>Nome</label><input id="edit-name" value="${p.Name||''}" />
-            <label>Tipo</label><select id="edit-tipo">${tipoOpts}</select>
-            <label>Note</label><textarea id="edit-note">${p.Note||''}</textarea>
-            <label>Link</label><input id="edit-link" value="${p.Link||''}" />
-            <div style="margin-top:10px;text-align:right;">
-                <button id="edit-canc" class="btn secondary">Annul</button>
-                <button id="edit-save" class="btn primary">Salva</button>
-            </div>
-        `;
-        
-        const popup = map._popup; // Usa il popup corrente
+        form.innerHTML = `<label>Nome</label><input id="edit-name" value="${p.Name||''}" /><label>Tipo</label><select id="edit-tipo">${tipoOpts}</select><label>Note</label><textarea id="edit-note">${p.Note||''}</textarea><label>Link</label><input id="edit-link" value="${p.Link||''}" /><div style="margin-top:10px;text-align:right;"><button id="edit-canc" class="btn secondary">Annul</button><button id="edit-save" class="btn primary">Salva</button></div>`;
+        const popup = map._popup;
         popup.setContent(form).update();
-        
         setTimeout(() => {
             document.getElementById('edit-canc').onclick = () => popup.setContent(createPopupContent(poiId)).update();
-            document.getElementById('edit-save').onclick = () => {
-                const payload = { 
-                    action: 'editPOI', 
-                    IDLuoghi: p.IDLuoghi, 
-                    Name: document.getElementById('edit-name').value.trim(), 
-                    IDTipo: document.getElementById('edit-tipo').value, 
-                    Note: document.getElementById('edit-note').value.trim(), 
-                    Link: document.getElementById('edit-link').value.trim() 
-                };
-                updatePOI(payload);
-            };
+            document.getElementById('edit-save').onclick = () => updatePOI({ action: 'editPOI', IDLuoghi: p.IDLuoghi, Name: document.getElementById('edit-name').value.trim(), IDTipo: document.getElementById('edit-tipo').value, Note: document.getElementById('edit-note').value.trim(), Link: document.getElementById('edit-link').value.trim() });
         }, 100);
     }
-
-    // --- FUNZIONI DI SERVIZIO ---
 
     function showCurrentLocation() { 
         if (!navigator.geolocation) return; 
         navigator.geolocation.getCurrentPosition((pos) => { 
             const { latitude, longitude } = pos.coords; 
             if (currentLocationMarker) currentLocationMarker.remove(); 
-            currentLocationMarker = L.circleMarker([latitude, longitude], { 
-                radius: 9, fillColor: '#007bff', color: "#fff", weight: 2, fillOpacity: 0.9 
-            }).addTo(poiLayerGroup); 
+            currentLocationMarker = L.circleMarker([latitude, longitude], { radius: 9, fillColor: '#007bff', color: "#fff", weight: 2, fillOpacity: 0.9 }).addTo(poiLayerGroup); 
         }, null); 
     }
 
     async function sendPostRequest(pl) { 
-        try { 
-            await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(pl) }); 
-            return true; 
-        } catch (e) { 
-            alert("Errore invio dati: " + e.message); 
-            return false; 
-        }
+        try { await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(pl) }); return true; } 
+        catch (e) { alert("Errore: " + e.message); return false; }
     }
-    
-    async function addPOI(pl) { if(await sendPostRequest(pl)) { alert('Salvato!'); map.closePopup(); await loadPOI(); } }
-    async function updatePOI(pl) { if(await sendPostRequest(pl)) { alert('Aggiornato!'); map.closePopup(); await loadPOI(); } }
-    async function deletePOI(id) { if(await sendPostRequest({action:'deletePOI', ID:id})) { alert('Eliminato!'); map.closePopup(); await loadPOI(); } }
+    async function addPOI(pl) { if(await sendPostRequest(pl)) { alert('Salvato!'); map.closePopup(); await loadPOI(); if (document.getElementById('poi-table-wrapper').classList.contains('visible')) populatePoiTable(); } }
+    async function updatePOI(pl) { if(await sendPostRequest(pl)) { alert('Aggiornato!'); map.closePopup(); await loadPOI(); if (document.getElementById('poi-table-wrapper').classList.contains('visible')) populatePoiTable(); } }
+    async function deletePOI(id) { if(await sendPostRequest({action:'deletePOI', ID:id})) { alert('Eliminato!'); map.closePopup(); await loadPOI(); if (document.getElementById('poi-table-wrapper').classList.contains('visible')) populatePoiTable(); } }
     </script>
 </body>
 </html>
