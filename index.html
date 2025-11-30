@@ -3,343 +3,258 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI Completa</title>
-
-<!-- LEAFLET CSS -->
+<title>Mappa POI Interattiva OSM</title>
+<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<!-- Leaflet Control Geocoder CSS (Per la ricerca OSM) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
+<link rel="icon" href="data:;base64,iVBORw0KGgo="> 
 <style>
-    /* STILE BASE */
-    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
-    #map { height: 100%; width: 100%; z-index: 1; }
-    
-    /* BOTTONI */
-    .btn { padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; color: white; margin-right: 3px; font-size: 12px; display: inline-block; text-decoration: none; }
-    .btn.primary { background-color: #007bff; }
-    .btn.secondary { background-color: #6c757d; }
-    .btn.danger { background-color: #dc3545; }
-    .btn.warning { background-color: #ffc107; color: #212529; }
-    .btn.success { background-color: #28a745; }
-    .btn:hover { opacity: 0.9; }
+/* ... STILI ... */
+html,body{height:100%;margin:0;font-family:Arial,sans-serif}
+#map{height:100%;width:100%}
+#ui-container{position:absolute;top:10px;width:100%;pointer-events:none;z-index:1000}
 
-    /* LOGIN & MODALI */
-    #auth-overlay, #admin-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; justify-content: center; align-items: center; }
-    #admin-overlay { z-index: 10000; display: none; }
-    
-    .modal-box { background: white; padding: 25px; border-radius: 8px; width: 300px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-    .modal-box input { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
-    .error-msg { color: red; margin-top: 10px; font-size: 13px; }
+/* Rimosso #search-container personalizzato perché usiamo il controllo nativo di Leaflet Geocoder */
 
-    /* PANNELLO UTENTE */
-    #user-panel { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 13px; display: none; }
-    #user-panel a { color: #dc3545; margin-left: 10px; text-decoration: none; cursor: pointer; font-weight: bold; }
-    #user-list { margin-top: 15px; max-height: 200px; overflow-y: auto; text-align: left; border-top: 1px solid #eee; }
-    .user-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+#refresh-container{position:absolute;top:10px;right:10px;z-index:1001;pointer-events:auto}
+#refresh-btn{display:flex;justify-content:center;align-items:center;width:42px;height:42px;background:rgba(255,255,255,.9);border-radius:6px;box-shadow:0 2px 5px rgba(0,0,0,.2);text-decoration:none;color:#333;font-size:24px;border:1px solid #ccc}
+#refresh-btn:hover{background:#f4f4f4}
+#bottom-left-controls{position:absolute;bottom:10px;left:10px;z-index:900;display:flex;align-items:flex-end;gap:10px}
+#poi-table-container-wrapper{position:relative;text-align:left}
+#legend-container{position:absolute;bottom:10px;right:10px;z-index:900;text-align:right}
+#legend{background:rgba(255,255,255,.9);padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,.4);margin-top:5px;display:none}
+#legend.visible{display:block}
+.legend-item{display:flex;align-items:center;margin-bottom:5px;font-size:14px}
+.legend-color{width:18px;height:18px;border-radius:50%;margin-right:8px;border:1px solid #555}
+#poi-table-wrapper{position:absolute;bottom:100%;margin-bottom:5px;background:rgba(255,255,255,.9);padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,.4);pointer-events:auto;display:none;max-height:300px;overflow-y:auto;width:350px}
+#poi-table-wrapper.visible{display:block}
+#poi-table{width:100%;border-collapse:collapse}
+#poi-table th,#poi-table td{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px}
+#poi-table th{background-color:#f2f2f2}
+.btn-select-poi{padding:4px 8px;font-size:12px;background-color:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer}
+.btn-select-poi:hover{background-color:#218838}
+.poi-form label{display:block;margin:8px 0 3px;font-weight:700;font-size:14px}
+.poi-form input,.poi-form textarea,.poi-form select{width:100%;padding:6px;border-radius:4px;border:1px solid #ccc;box-sizing:border-box}
+.poi-form textarea{resize:vertical}
+.poi-form input:disabled{background-color:#e9ecef;cursor:not-allowed;opacity:1}
+.btn{display:inline-block;padding:6px 10px;border-radius:4px;border:none;cursor:pointer;color:#fff;text-decoration:none;margin-top:8px;margin-right:5px}
+.btn.primary{background:#1976d2}
+.btn.secondary{background:#6c757d}
+.btn-delete{background-color:#dc3545}
+.btn-navigate{background-color:#28a745}
+.btn-edit{background-color:#ffc107;color:#212529}
 
-    /* UI MAPPA */
-    #bottom-left-controls { position: absolute; bottom: 20px; left: 10px; z-index: 900; display: flex; flex-direction: column-reverse; gap: 10px; }
-    #legend-container { position: absolute; bottom: 20px; right: 10px; z-index: 900; text-align: right; }
-    
-    #poi-table-wrapper, #legend { background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: none; }
-    #poi-table-wrapper.visible, #legend.visible { display: block; }
-    #poi-table-wrapper { max-height: 300px; overflow-y: auto; width: 300px; background: rgba(255,255,255,0.95); }
-    
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { background: #f0f0f0; text-align: left; padding: 5px; position: sticky; top: 0; }
-    td { border-bottom: 1px solid #ddd; padding: 5px; }
-    .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 12px; }
-    .legend-color { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; border: 1px solid #666; }
-    
-    /* --- STILE FORM POPUP (CORRETTO) --- */
-    .poi-form { 
-        width: 260px; 
-        display: flex; 
-        flex-direction: column; 
-    }
-    
-    .poi-form label { 
-        font-weight: bold; 
-        margin: 6px 0 2px; 
-        font-size: 11px; 
-    }
-    
-    .poi-form input, .poi-form select, .poi-form textarea { 
-        width: 100%; 
-        padding: 6px; 
-        border: 1px solid #ccc; 
-        border-radius: 4px; 
-        box-sizing: border-box; 
-        font-family: inherit; 
-        font-size: 12px; 
-    }
-    
-    .poi-form textarea { 
-        min-height: 60px; 
-        resize: vertical; 
-    }
-    
-    .popup-actions { margin-top: 10px; text-align: right; }
-    
-    .poi-note-display { white-space: pre-wrap; max-height: 120px; overflow-y: auto; background: #f9f9f9; padding: 5px; border: 1px solid #eee; border-radius: 3px; margin-top: 3px; font-size: 12px; }
-    
-    /* Riduce leggermente il padding del popup Leaflet stesso */
-    .leaflet-popup-content { margin: 10px; }
-    .leaflet-control-geocoder { z-index: 800; }
+/* Stile per il pulsante di ricerca Leaflet per renderlo più visibile */
+.leaflet-control-geocoder-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+}
+.leaflet-control-geocoder-form input {
+    font-size: 14px;
+    padding: 5px;
+}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="auth-overlay">
-    <div class="modal-box">
-        <h2>LOGIN</h2>
-        <input type="text" id="auth-user" placeholder="Username (es. bologna)">
-        <input type="password" id="auth-pass" placeholder="Password (Solo per Admin)">
-        <button class="btn primary" id="btn-login" style="width:100%">ENTRA</button>
-        <div id="auth-error" class="error-msg"></div>
-    </div>
-</div>
-
-<!-- GESTIONE UTENTI (Admin) -->
-<div id="admin-overlay">
-    <div class="modal-box">
-        <h3>Gestione Utenti</h3>
-        <div style="background:#f9f9f9; padding:10px; border-radius:5px; margin-bottom:10px;">
-            <p style="font-size:12px; margin:0 0 5px 0;">Crea utente (Senza password)</p>
-            <input type="text" id="new-user-name" placeholder="Nome Utente (es. milano)">
-            <button class="btn primary" onclick="createNewUser()" style="width:100%">Crea Utente</button>
-        </div>
-        <strong>Lista Utenti:</strong>
-        <div id="user-list">Caricamento...</div>
-        <button class="btn secondary" style="margin-top:15px;" onclick="closeAdminPanel()">Chiudi</button>
-    </div>
-</div>
-
-<!-- PANNELLO UTENTE -->
-<div id="user-panel">
-    Ciao, <span id="display-username">User</span>
-    <button id="btn-admin-users" class="btn warning" style="display:none; margin-left:10px;" onclick="openAdminPanel()">Gestione Utenti</button>
-    <a onclick="logout()">Esci</a>
-</div>
-
-<!-- TABELLA -->
-<div id="bottom-left-controls">
-    <button id="btn-toggle-table" class="btn secondary">Mostra Elenco POI</button>
-    <div id="poi-table-wrapper"></div>
-</div>
-
-<!-- LEGENDA -->
-<div id="legend-container">
-    <button id="btn-toggle-legend" class="btn secondary">Legenda</button>
-    <div id="legend"><div id="legend-content"></div></div>
-</div>
-
+<!-- Rimosso vecchio search container, il plugin Geocoder aggiunge il suo pulsante -->
+<div id="refresh-container"><a href="javascript:location.reload();" id="refresh-btn" title="Aggiorna la pagina">&#x21BB;</a></div>
+<div id="bottom-left-controls"><div id="poi-table-container-wrapper"><button id="toggle-poi-table-btn" class="btn secondary">Mostra POI</button><div id="poi-table-wrapper"><p>Caricamento dati...</p></div></div></div>
 <div id="map"></div>
+<div id="legend-container"><button id="toggle-legend-btn" class="btn secondary">Legenda</button><div id="legend"><strong>Tipologie POI</strong><div id="legend-content"></div></div></div>
 
-<!-- JS -->
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- Leaflet Control Geocoder JS -->
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
 <script>
-const API_URL = ''; // userà automaticamente l'indirizzo del sito
-let map, poiLayer, tipologie = [], markers = {}, cachedPois = [];
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyR0Km5Mk8QrjEsDneZG97U3zFLgvM5laL2z3awBizFdn9VUK40XZfEk25BaYxaysR9/exec';
+let map, poiLayerGroup, tipologie = [];
+let currentLocationMarker = null;
+const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
+const DEFAULT_ZOOM = 15;
+let markerReferences = {};
+let poiDataStore = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    if(localStorage.getItem('poi_token')) initApp();
-    
-    document.getElementById('btn-login').addEventListener('click', async () => {
-        const u = document.getElementById('auth-user').value;
-        const p = document.getElementById('auth-pass').value;
-        try {
-            const res = await fetch(`${API_URL}/login`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: u, password: p})
-            });
-            const data = await res.json();
-            if(res.ok) {
-                localStorage.setItem('poi_token', data.token);
-                localStorage.setItem('poi_user', data.username);
-                localStorage.setItem('poi_role', data.role);
-                location.reload();
-            } else {
-                document.getElementById('auth-error').innerText = data.error;
-            }
-        } catch(e) { document.getElementById('auth-error').innerText = "Errore server"; }
+    // Gestione Legenda
+    const toggleLegendBtn = document.getElementById('toggle-legend-btn');
+    const legend = document.getElementById('legend');
+    toggleLegendBtn.addEventListener('click', () => {
+        legend.classList.toggle('visible');
+        toggleLegendBtn.textContent = legend.classList.contains('visible') ? 'Nascondi Legenda' : 'Mostra Legenda';
+    });
+    toggleLegendBtn.textContent = 'Mostra Legenda';
+
+    // Gestione Tabella POI
+    const togglePoiTableBtn = document.getElementById('toggle-poi-table-btn');
+    const poiTableWrapper = document.getElementById('poi-table-wrapper');
+    togglePoiTableBtn.addEventListener('click', async () => {
+        poiTableWrapper.classList.toggle('visible');
+        togglePoiTableBtn.textContent = poiTableWrapper.classList.contains('visible') ? 'Nascondi Elenco' : 'Mostra POI';
+        if (poiTableWrapper.classList.contains('visible')) {
+            await populatePoiTable();
+        }
     });
 
-    document.getElementById('btn-toggle-legend').onclick = () => document.getElementById('legend').classList.toggle('visible');
-    document.getElementById('btn-toggle-table').onclick = () => {
-        const t = document.getElementById('poi-table-wrapper');
-        t.classList.toggle('visible');
-        if(t.classList.contains('visible')) populateTable();
-    };
+    // Inizializza mappa
+    initMap();
 });
 
-function logout() { localStorage.clear(); location.reload(); }
-
-async function initApp() {
-    document.getElementById('auth-overlay').style.display = 'none';
-    document.getElementById('user-panel').style.display = 'block';
-    
-    const user = localStorage.getItem('poi_user');
-    const role = localStorage.getItem('poi_role');
-    document.getElementById('display-username').innerText = user;
-
-    if(role === 'admin') document.getElementById('btn-admin-users').style.display = 'inline-block';
-
-    initMap();
-    await loadTipologie(); 
-    await loadPOI();       
-}
-
-// --- GESTIONE UTENTI ---
-function openAdminPanel() { document.getElementById('admin-overlay').style.display = 'flex'; loadUserList(); }
-function closeAdminPanel() { document.getElementById('admin-overlay').style.display = 'none'; }
-
-async function loadUserList() {
-    const listDiv = document.getElementById('user-list');
-    listDiv.innerHTML = "Caricamento...";
-    try {
-        const res = await apiCall('/users', 'GET');
-        const users = await res.json();
-        let html = '';
-        users.forEach(u => {
-            const isMe = u.username === localStorage.getItem('poi_user');
-            const delBtn = isMe ? '<small>(Tu)</small>' : `<button class="btn danger" style="padding:2px 6px" onclick="deleteUser(${u.id})">X</button>`;
-            html += `<div class="user-row"><span><b>${u.username}</b> (${u.role})</span>${delBtn}</div>`;
-        });
-        listDiv.innerHTML = html;
-    } catch(e) { listDiv.innerHTML = "Errore caricamento"; }
-}
-
-async function createNewUser() {
-    const u = document.getElementById('new-user-name').value;
-    if(!u) return alert("Inserisci username");
-    const res = await apiCall('/users', 'POST', {username: u});
-    if(res.ok) { alert("Utente creato!"); document.getElementById('new-user-name').value = ''; loadUserList(); }
-    else { const d = await res.json(); alert("Errore: " + d.error); }
-}
-
-async function deleteUser(id) {
-    if(!confirm("Eliminare utente? Verranno cancellati anche tutti i suoi POI.")) return;
-    const res = await apiCall(`/users/${id}`, 'DELETE');
-    if(res.ok) loadUserList();
-    else alert("Errore eliminazione");
-}
-
-// --- MAPPA ---
 function initMap() {
-    map = L.map('map').setView([42.76, 11.11], 13);
-    poiLayer = L.layerGroup().addTo(map);
+  map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+  poiLayerGroup = L.layerGroup().addTo(map);
+  
+  showCurrentLocation();
+  
+  // Doppio click per aggiungere POI manualmente
+  map.on('dblclick', (e) => openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''}));
+  
+  // --- NUOVA RICERCA OPENSTREETMAP ---
+  // Aggiunge il controllo di ricerca in alto a destra
+  const geocoder = L.Control.geocoder({
+    defaultMarkGeocode: false, // Impedisce di mettere un marker di default, usiamo la nostra form
+    placeholder: "Cerca su OpenStreetMap...",
+    errorMessage: "Nessun risultato trovato."
+  })
+  .on('markgeocode', function(e) {
+    const result = e.geocode;
+    
+    // Centra la mappa sul risultato
+    map.fitBounds(result.bbox);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    // ESTRAZIONE NOME: Prende solo la parte prima della prima virgola
+    // Esempio: "Colosseo, Piazza del Colosseo..." -> diventa "Colosseo"
+    let fullName = result.name || '';
+    let shortName = fullName.split(',')[0].trim();
 
-    L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "Cerca...", position: 'topleft' })
-    .on('markgeocode', function(e) {
-        const bbox = e.geocode.bbox;
-        const poly = L.polygon([
-            bbox.getSouthEast(), bbox.getNorthEast(), bbox.getNorthWest(), bbox.getSouthWest()
-        ]);
-        map.fitBounds(poly.getBounds());
-        let shortName = e.geocode.name.split(',')[0];
-        openAddForm(e.geocode.center, shortName);
-    })
-    .addTo(map);
+    // Apre il popup di inserimento con i dati precompilati
+    openPoiForm({
+        lat: result.center.lat,
+        lng: result.center.lng,
+        name: shortName
+    });
+  })
+  .addTo(map);
 
-    map.on('dblclick', e => openAddForm(e.latlng));
-
-    // --- PULSANTE POSIZIONE ---
-    L.control({position: 'topleft'}).onAdd = function(map){
-        const btn = L.DomUtil.create('button', 'btn primary');
-        btn.innerHTML = '📍 La mia posizione';
-        btn.style.padding = '4px 8px';
-        btn.onclick = showMyLocation;
-        return btn;
-    }.addTo(map);
-}
-
-// --- FUNZIONE POSIZIONE ---
-function showMyLocation() {
-    if (!navigator.geolocation) { alert("Geolocalizzazione non supportata."); return; }
-    navigator.geolocation.getCurrentPosition(
-        pos => {
-            const lat = pos.coords.latitude, lng = pos.coords.longitude;
-            L.circleMarker([lat, lng], { radius: 8, fillColor: "blue", color: "#000", weight:1, opacity:1, fillOpacity:0.9 })
-              .addTo(map).bindPopup("Sei qui").openPopup();
-            L.circle([lat, lng], { radius: pos.coords.accuracy, color: "blue", fillColor:"blue", fillOpacity:0.1 }).addTo(map);
-            map.setView([lat, lng], 16);
-        },
-        err => alert("Errore geolocalizzazione: " + err.message)
-    );
-}
-
-// --- CARICAMENTO TIPI & POI ---
-async function loadTipologie() {
-    try {
-        const res = await fetch(`${API_URL}/tipologie`);
-        tipologie = await res.json();
-        const con = document.getElementById('legend-content');
-        con.innerHTML = '';
-        tipologie.forEach(t => { con.innerHTML += `<div class="legend-item"><div class="legend-color" style="background:${t.Colore}"></div>${t.Tipo}</div>`; });
-    } catch(e) { console.error("Errore Tipologie", e); }
+  // Caricamento dati
+  loadTipologie().then(() => loadPOI());
 }
 
 async function loadPOI() {
-    try {
-        const res = await apiCall('/pois', 'GET');
-        if(!res.ok) return logout();
-        const pois = await res.json();
-        cachedPois = pois;
+  try {
+    const res = await fetch(`${GAS_URL}?action=listPOI`);
+    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
+    const data = await res.json();
+    poiDataStore = data;
+    
+    poiLayerGroup.clearLayers();
+    if(currentLocationMarker) currentLocationMarker.addTo(poiLayerGroup);
+    markerReferences = {};
+
+    poiDataStore.forEach(p => {
+      if (!p.Coordinate) return;
+      const coords = String(p.Coordinate).split(',').map(Number);
+      if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+      
+      const tipo = tipologie.find(t => t.id === String(p.IDTipo).trim());
+      const hasValidId = p.IDLuoghi !== null && p.IDLuoghi !== undefined && String(p.IDLuoghi).trim() !== '';
+
+      const marker = L.circleMarker(coords, { radius: 8, fillColor: tipo ? tipo.colore : 'blue', color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8 }).addTo(poiLayerGroup);
+      
+      if (hasValidId) {
+        marker.poiId = p.IDLuoghi;
+        markerReferences[p.IDLuoghi] = marker;
         
-        poiLayer.clearLayers();
-        markers = {};
-
-        pois.forEach(p => {
-            const tipo = tipologie.find(t => t.IDTipo == p.type);
-            const color = tipo ? tipo.Colore : 'gray'; 
-            const typeName = tipo ? tipo.Tipo : '-';
-
-            const m = L.circleMarker([p.lat, p.lng], { radius: 8, fillColor: color, color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8 }).addTo(poiLayer);
-            markers[p.id] = m;
-            m.bindPopup(createPopup(p, typeName));
+        marker.on('popupopen', (e) => {
+            const currentPoiId = e.target.poiId;
+            const popupNode = e.popup.getElement();
+            L.DomEvent.on(popupNode, 'click', L.DomEvent.stopPropagation);
+            popupNode.querySelector('.btn-delete').onclick = () => {
+                const currentPoiData = poiDataStore.find(poi => poi.IDLuoghi === currentPoiId);
+                if (confirm(`Sei sicuro di voler eliminare il POI "${currentPoiData.Name}"?`)) {
+                    deletePOI(currentPoiId);
+                }
+            };
+            popupNode.querySelector('.btn-edit').onclick = () => openPoiEditForm(currentPoiId);
         });
-        if(document.getElementById('poi-table-wrapper').classList.contains('visible')) populateTable();
-    } catch(e) { console.error("Errore POI", e); }
-}
-
-// --- FUNZIONI POPUP & TABELLA ---
-function createPopup(p, typeName) {
-    const isOwner = localStorage.getItem('poi_user') === p.owner || localStorage.getItem('poi_role') === 'admin';
-    let noteHtml = p.note ? `<div class="poi-note-display">${p.note}</div>` : '<i>Nessuna nota</i>';
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
-    let h = `<b>${p.name}</b><br><small>${typeName}</small><br>${noteHtml}`;
-    if(p.link) h += `<br><a href="${p.link}" target="_blank">Link Info</a>`;
-    h += `<div style="margin-top:8px; margin-bottom:5px;"><a href="${mapsUrl}" target="_blank" class="btn success">Naviga</a></div>`;
-    if(isOwner) h += `<div class="popup-actions"><button class="btn warning" onclick="openEdit(${p.id})">Modifica</button><button class="btn danger" onclick="del(${p.id})">Elimina</button></div>`;
-    return h;
-}
-
-function populateTable() {
-    const container = document.getElementById('poi-table-wrapper');
-    if(!cachedPois.length) { container.innerHTML = "Nessun punto."; return; }
-    let h = `<table><thead><tr><th>Nome</th><th>Tipo</th><th>Vai</th></tr></thead><tbody>`;
-    cachedPois.forEach(p => {
-        const tipo = tipologie.find(t => t.IDTipo == p.type);
-        const typeName = tipo ? tipo.Tipo : '-';
-        h += `<tr><td>${p.name}</td><td>${typeName}</td><td><button class="btn success" onclick="map.setView([${p.lat},${p.lng}],16)">Vai</button></td></tr>`;
+        marker.bindPopup(() => createPopupContent(p.IDLuoghi), { minWidth: 280 });
+      }
     });
-    h += `</tbody></table>`;
-    container.innerHTML = h;
+  } catch(e) { 
+    console.error("Errore caricamento POI:", e);
+    // Non blocchiamo l'app se fallisce il caricamento, ma avvisiamo
+  }
 }
 
-// --- HELP ---
-async function apiCall(endpoint, method='GET', body=null) {
-    const token = localStorage.getItem('poi_token');
-    const opts = { method, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type':'application/json' } };
-    if(body) opts.body = JSON.stringify(body);
-    return fetch(`${API_URL}${endpoint}`, opts);
+function createPopupContent(poiId) {
+    const poiData = poiDataStore.find(p => p.IDLuoghi === poiId);
+    if (!poiData) return 'Dati non trovati.';
+    const tipo = tipologie.find(t => t.id === String(poiData.IDTipo).trim());
+    const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${poiData.Coordinate}`;
+    let content = `<b>${poiData.IDLuoghi} - ${poiData.Name || 'Senza nome'}</b><br>Tipo: ${tipoNome}<br>Note: ${poiData.Note || 'Nessuna nota'}<br>${poiData.Link ? `<a href="${poiData.Link}" target="_blank">Link</a><br>` : ''}`;
+    let buttonsHtml = '<div style="margin-top: 8px;">';
+    buttonsHtml += `<a href="${googleMapsUrl}" target="_blank" class="btn btn-navigate">Invia a Maps</a>`;
+    buttonsHtml += `<button class="btn btn-edit">Modifica</button>`;
+    buttonsHtml += `<button class="btn btn-delete">Elimina</button>`;
+    buttonsHtml += '</div>';
+    return content + buttonsHtml;
 }
-</script>
-</body>
-</html>
+
+function openPoiEditForm(poiId) {
+    const popup = map._popup;
+    if (!popup) return;
+    const poiData = poiDataStore.find(p => p.IDLuoghi === poiId);
+    if (!poiData) { alert("Errore: dati del POI non trovati."); return; }
+
+    const form = document.createElement('div');
+    form.className = 'poi-form';
+    
+    const createField = (labelText, type, value, disabled = false) => {
+        const label = document.createElement('label');
+        label.textContent = labelText;
+        const input = (type === 'textarea') ? document.createElement('textarea') : (type === 'select') ? document.createElement('select') : document.createElement('input');
+        if (type === 'textarea') input.textContent = value || '';
+        else if (type === 'select') {
+            input.innerHTML = tipologie.map(t => `<option value="${t.id}" ${String(t.id) === String(value).trim() ? 'selected' : ''}>${t.nome}</option>`).join('');
+        } else {
+            input.type = type;
+            input.value = value || '';
+        }
+        input.disabled = disabled;
+        form.appendChild(label);
+        form.appendChild(input);
+        return input;
+    };
+    
+    createField('ID (non modificabile)', 'text', poiData.IDLuoghi, true);
+    const inputName = createField('Nome', 'text', poiData.Name);
+    const selectTipo = createField('Tipo', 'select', poiData.IDTipo);
+    const textareaNote = createField('Note', 'textarea', poiData.Note);
+    const inputLink = createField('Link', 'text', poiData.Link);
+
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.style.textAlign = 'right';
+    const btnCancel = document.createElement('button');
+    btnCancel.className = 'btn secondary';
+    btnCancel.textContent = 'Annulla';
+    btnCancel.onclick = () => { popup.setContent(createPopupContent(poiId)).update(); };
+    const btnSave = document.createElement('button');
+    btnSave.className = 'btn primary';
+    btnSave.textContent = 'Salva';
+    btnSave.onclick = () => {
+        const payload = {
+            action: 'editPOI',
+            IDLuoghi: poiData.IDLuoghi,
+            Name: inputName.value.trim(),
+            IDTipo: selectTipo.value,
+            Note: textareaNote.value.trim(),
+            Link: inputLink.value.trim()
+        };
+        updatePOI(pa
