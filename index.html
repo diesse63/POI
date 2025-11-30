@@ -3,258 +3,297 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI Interattiva OSM</title>
+<title>Mappa POI OSM</title>
+
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<!-- Leaflet Control Geocoder CSS (Per la ricerca OSM) -->
+<!-- Leaflet Control Geocoder CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
-<link rel="icon" href="data:;base64,iVBORw0KGgo="> 
 <style>
-/* ... STILI ... */
-html,body{height:100%;margin:0;font-family:Arial,sans-serif}
-#map{height:100%;width:100%}
-#ui-container{position:absolute;top:10px;width:100%;pointer-events:none;z-index:1000}
+    /* RESET TOTALE per garantire altezza piena */
+    html, body {
+        height: 100vh; /* 100% dell'altezza dello schermo */
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Niente barre di scorrimento */
+        font-family: Arial, sans-serif;
+    }
 
-/* Rimosso #search-container personalizzato perché usiamo il controllo nativo di Leaflet Geocoder */
+    /* La mappa deve occupare tutto lo spazio in assoluto */
+    #map {
+        height: 100vh; 
+        width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1; /* Livello base */
+        background: #e5e5e5; /* Colore di sfondo grigino se le tiles non caricano subito */
+    }
 
-#refresh-container{position:absolute;top:10px;right:10px;z-index:1001;pointer-events:auto}
-#refresh-btn{display:flex;justify-content:center;align-items:center;width:42px;height:42px;background:rgba(255,255,255,.9);border-radius:6px;box-shadow:0 2px 5px rgba(0,0,0,.2);text-decoration:none;color:#333;font-size:24px;border:1px solid #ccc}
-#refresh-btn:hover{background:#f4f4f4}
-#bottom-left-controls{position:absolute;bottom:10px;left:10px;z-index:900;display:flex;align-items:flex-end;gap:10px}
-#poi-table-container-wrapper{position:relative;text-align:left}
-#legend-container{position:absolute;bottom:10px;right:10px;z-index:900;text-align:right}
-#legend{background:rgba(255,255,255,.9);padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,.4);margin-top:5px;display:none}
-#legend.visible{display:block}
-.legend-item{display:flex;align-items:center;margin-bottom:5px;font-size:14px}
-.legend-color{width:18px;height:18px;border-radius:50%;margin-right:8px;border:1px solid #555}
-#poi-table-wrapper{position:absolute;bottom:100%;margin-bottom:5px;background:rgba(255,255,255,.9);padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,.4);pointer-events:auto;display:none;max-height:300px;overflow-y:auto;width:350px}
-#poi-table-wrapper.visible{display:block}
-#poi-table{width:100%;border-collapse:collapse}
-#poi-table th,#poi-table td{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px}
-#poi-table th{background-color:#f2f2f2}
-.btn-select-poi{padding:4px 8px;font-size:12px;background-color:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer}
-.btn-select-poi:hover{background-color:#218838}
-.poi-form label{display:block;margin:8px 0 3px;font-weight:700;font-size:14px}
-.poi-form input,.poi-form textarea,.poi-form select{width:100%;padding:6px;border-radius:4px;border:1px solid #ccc;box-sizing:border-box}
-.poi-form textarea{resize:vertical}
-.poi-form input:disabled{background-color:#e9ecef;cursor:not-allowed;opacity:1}
-.btn{display:inline-block;padding:6px 10px;border-radius:4px;border:none;cursor:pointer;color:#fff;text-decoration:none;margin-top:8px;margin-right:5px}
-.btn.primary{background:#1976d2}
-.btn.secondary{background:#6c757d}
-.btn-delete{background-color:#dc3545}
-.btn-navigate{background-color:#28a745}
-.btn-edit{background-color:#ffc107;color:#212529}
+    /* Interfaccia utente sopra la mappa */
+    #refresh-container, #bottom-left-controls, #legend-container {
+        position: absolute;
+        z-index: 1000; /* Molto sopra la mappa */
+        pointer-events: none; /* Permette di cliccare la mappa "attraverso" i div vuoti */
+    }
 
-/* Stile per il pulsante di ricerca Leaflet per renderlo più visibile */
-.leaflet-control-geocoder-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
-}
-.leaflet-control-geocoder-form input {
-    font-size: 14px;
-    padding: 5px;
-}
+    /* Riattiva il click sui pulsanti */
+    #refresh-btn, .btn, #legend, #poi-table-wrapper {
+        pointer-events: auto;
+    }
+
+    /* Posizionamenti specifici */
+    #refresh-container { top: 10px; right: 10px; }
+    #bottom-left-controls { bottom: 10px; left: 10px; display: flex; align-items: flex-end; gap: 10px; }
+    #legend-container { bottom: 10px; right: 10px; text-align: right; }
+
+    /* Stili Bottoni e Pannelli */
+    #refresh-btn {
+        display: flex; justify-content: center; align-items: center;
+        width: 42px; height: 42px; background: rgba(255,255,255,.9);
+        border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,.2);
+        text-decoration: none; color: #333; font-size: 24px; border: 1px solid #ccc;
+    }
+    #refresh-btn:hover { background: #f4f4f4; }
+
+    #legend {
+        background: rgba(255,255,255,.9); padding: 10px; border-radius: 5px;
+        box-shadow: 0 1px 5px rgba(0,0,0,.4); margin-top: 5px; display: none;
+    }
+    #legend.visible { display: block; }
+    .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px; }
+    .legend-color { width: 18px; height: 18px; border-radius: 50%; margin-right: 8px; border: 1px solid #555; }
+
+    #poi-table-wrapper {
+        position: absolute; bottom: 100%; margin-bottom: 5px;
+        background: rgba(255,255,255,.9); padding: 10px; border-radius: 5px;
+        box-shadow: 0 1px 5px rgba(0,0,0,.4); display: none;
+        max-height: 300px; overflow-y: auto; width: 350px;
+    }
+    #poi-table-wrapper.visible { display: block; }
+    #poi-table { width: 100%; border-collapse: collapse; }
+    #poi-table th, #poi-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+    #poi-table th { background-color: #f2f2f2; }
+
+    /* Bottoni generici */
+    .btn { display: inline-block; padding: 6px 10px; border-radius: 4px; border: none; cursor: pointer; color: #fff; text-decoration: none; margin-top: 8px; margin-right: 5px; }
+    .btn.primary { background: #1976d2; }
+    .btn.secondary { background: #6c757d; }
+    .btn-delete { background-color: #dc3545; }
+    .btn-navigate { background-color: #28a745; }
+    .btn-edit { background-color: #ffc107; color: #212529; }
+    .btn-select-poi { padding: 4px 8px; font-size: 12px; background-color: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+
+    /* Form Styles */
+    .poi-form label { display: block; margin: 8px 0 3px; font-weight: 700; font-size: 14px; }
+    .poi-form input, .poi-form textarea, .poi-form select { width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
+    .poi-form textarea { resize: vertical; }
+    .poi-form input:disabled { background-color: #e9ecef; cursor: not-allowed; opacity: 1; }
+
+    /* Stile Ricerca Geocoder */
+    .leaflet-control-geocoder-icon { width: 30px; height: 30px; border-radius: 4px; }
+    .leaflet-control-geocoder-form input { font-size: 14px; padding: 5px; }
 </style>
 </head>
 <body>
 
-<!-- Rimosso vecchio search container, il plugin Geocoder aggiunge il suo pulsante -->
-<div id="refresh-container"><a href="javascript:location.reload();" id="refresh-btn" title="Aggiorna la pagina">&#x21BB;</a></div>
-<div id="bottom-left-controls"><div id="poi-table-container-wrapper"><button id="toggle-poi-table-btn" class="btn secondary">Mostra POI</button><div id="poi-table-wrapper"><p>Caricamento dati...</p></div></div></div>
-<div id="map"></div>
-<div id="legend-container"><button id="toggle-legend-btn" class="btn secondary">Legenda</button><div id="legend"><strong>Tipologie POI</strong><div id="legend-content"></div></div></div>
+    <!-- Mappa -->
+    <div id="map"></div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<!-- Leaflet Control Geocoder JS -->
-<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-
-<script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyR0Km5Mk8QrjEsDneZG97U3zFLgvM5laL2z3awBizFdn9VUK40XZfEk25BaYxaysR9/exec';
-let map, poiLayerGroup, tipologie = [];
-let currentLocationMarker = null;
-const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
-const DEFAULT_ZOOM = 15;
-let markerReferences = {};
-let poiDataStore = [];
-
-document.addEventListener('DOMContentLoaded', () => {
-    // Gestione Legenda
-    const toggleLegendBtn = document.getElementById('toggle-legend-btn');
-    const legend = document.getElementById('legend');
-    toggleLegendBtn.addEventListener('click', () => {
-        legend.classList.toggle('visible');
-        toggleLegendBtn.textContent = legend.classList.contains('visible') ? 'Nascondi Legenda' : 'Mostra Legenda';
-    });
-    toggleLegendBtn.textContent = 'Mostra Legenda';
-
-    // Gestione Tabella POI
-    const togglePoiTableBtn = document.getElementById('toggle-poi-table-btn');
-    const poiTableWrapper = document.getElementById('poi-table-wrapper');
-    togglePoiTableBtn.addEventListener('click', async () => {
-        poiTableWrapper.classList.toggle('visible');
-        togglePoiTableBtn.textContent = poiTableWrapper.classList.contains('visible') ? 'Nascondi Elenco' : 'Mostra POI';
-        if (poiTableWrapper.classList.contains('visible')) {
-            await populatePoiTable();
-        }
-    });
-
-    // Inizializza mappa
-    initMap();
-});
-
-function initMap() {
-  map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-  poiLayerGroup = L.layerGroup().addTo(map);
-  
-  showCurrentLocation();
-  
-  // Doppio click per aggiungere POI manualmente
-  map.on('dblclick', (e) => openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''}));
-  
-  // --- NUOVA RICERCA OPENSTREETMAP ---
-  // Aggiunge il controllo di ricerca in alto a destra
-  const geocoder = L.Control.geocoder({
-    defaultMarkGeocode: false, // Impedisce di mettere un marker di default, usiamo la nostra form
-    placeholder: "Cerca su OpenStreetMap...",
-    errorMessage: "Nessun risultato trovato."
-  })
-  .on('markgeocode', function(e) {
-    const result = e.geocode;
+    <!-- Controlli -->
+    <div id="refresh-container"><a href="javascript:location.reload();" id="refresh-btn" title="Aggiorna">&#x21BB;</a></div>
     
-    // Centra la mappa sul risultato
-    map.fitBounds(result.bbox);
+    <div id="bottom-left-controls">
+        <div id="poi-table-container-wrapper">
+            <button id="toggle-poi-table-btn" class="btn secondary">Mostra POI</button>
+            <div id="poi-table-wrapper"><p>Caricamento dati...</p></div>
+        </div>
+    </div>
 
-    // ESTRAZIONE NOME: Prende solo la parte prima della prima virgola
-    // Esempio: "Colosseo, Piazza del Colosseo..." -> diventa "Colosseo"
-    let fullName = result.name || '';
-    let shortName = fullName.split(',')[0].trim();
+    <div id="legend-container">
+        <button id="toggle-legend-btn" class="btn secondary">Legenda</button>
+        <div id="legend">
+            <strong>Tipologie POI</strong>
+            <div id="legend-content"></div>
+        </div>
+    </div>
 
-    // Apre il popup di inserimento con i dati precompilati
-    openPoiForm({
-        lat: result.center.lat,
-        lng: result.center.lng,
-        name: shortName
-    });
-  })
-  .addTo(map);
+    <!-- Script -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
-  // Caricamento dati
-  loadTipologie().then(() => loadPOI());
-}
+    <script>
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyR0Km5Mk8QrjEsDneZG97U3zFLgvM5laL2z3awBizFdn9VUK40XZfEk25BaYxaysR9/exec';
+    let map, poiLayerGroup, tipologie = [];
+    let currentLocationMarker = null;
+    const DEFAULT_CENTER = [42.76030097166939, 11.114333399598166];
+    const DEFAULT_ZOOM = 15;
+    let markerReferences = {};
+    let poiDataStore = [];
 
-async function loadPOI() {
-  try {
-    const res = await fetch(`${GAS_URL}?action=listPOI`);
-    if (!res.ok) throw new Error(`Errore HTTP: ${res.status}`);
-    const data = await res.json();
-    poiDataStore = data;
-    
-    poiLayerGroup.clearLayers();
-    if(currentLocationMarker) currentLocationMarker.addTo(poiLayerGroup);
-    markerReferences = {};
-
-    poiDataStore.forEach(p => {
-      if (!p.Coordinate) return;
-      const coords = String(p.Coordinate).split(',').map(Number);
-      if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
-      
-      const tipo = tipologie.find(t => t.id === String(p.IDTipo).trim());
-      const hasValidId = p.IDLuoghi !== null && p.IDLuoghi !== undefined && String(p.IDLuoghi).trim() !== '';
-
-      const marker = L.circleMarker(coords, { radius: 8, fillColor: tipo ? tipo.colore : 'blue', color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8 }).addTo(poiLayerGroup);
-      
-      if (hasValidId) {
-        marker.poiId = p.IDLuoghi;
-        markerReferences[p.IDLuoghi] = marker;
-        
-        marker.on('popupopen', (e) => {
-            const currentPoiId = e.target.poiId;
-            const popupNode = e.popup.getElement();
-            L.DomEvent.on(popupNode, 'click', L.DomEvent.stopPropagation);
-            popupNode.querySelector('.btn-delete').onclick = () => {
-                const currentPoiData = poiDataStore.find(poi => poi.IDLuoghi === currentPoiId);
-                if (confirm(`Sei sicuro di voler eliminare il POI "${currentPoiData.Name}"?`)) {
-                    deletePOI(currentPoiId);
-                }
-            };
-            popupNode.querySelector('.btn-edit').onclick = () => openPoiEditForm(currentPoiId);
+    document.addEventListener('DOMContentLoaded', () => {
+        // UI Listeners
+        const toggleLegendBtn = document.getElementById('toggle-legend-btn');
+        const legend = document.getElementById('legend');
+        toggleLegendBtn.addEventListener('click', () => {
+            legend.classList.toggle('visible');
+            toggleLegendBtn.textContent = legend.classList.contains('visible') ? 'Nascondi Legenda' : 'Mostra Legenda';
         });
-        marker.bindPopup(() => createPopupContent(p.IDLuoghi), { minWidth: 280 });
-      }
+
+        const togglePoiTableBtn = document.getElementById('toggle-poi-table-btn');
+        const poiTableWrapper = document.getElementById('poi-table-wrapper');
+        togglePoiTableBtn.addEventListener('click', async () => {
+            poiTableWrapper.classList.toggle('visible');
+            togglePoiTableBtn.textContent = poiTableWrapper.classList.contains('visible') ? 'Nascondi Elenco' : 'Mostra POI';
+            if (poiTableWrapper.classList.contains('visible')) await populatePoiTable();
+        });
+
+        // Inizializza mappa
+        initMap();
     });
-  } catch(e) { 
-    console.error("Errore caricamento POI:", e);
-    // Non blocchiamo l'app se fallisce il caricamento, ma avvisiamo
-  }
-}
 
-function createPopupContent(poiId) {
-    const poiData = poiDataStore.find(p => p.IDLuoghi === poiId);
-    if (!poiData) return 'Dati non trovati.';
-    const tipo = tipologie.find(t => t.id === String(poiData.IDTipo).trim());
-    const tipoNome = tipo ? tipo.nome : 'Sconosciuto';
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${poiData.Coordinate}`;
-    let content = `<b>${poiData.IDLuoghi} - ${poiData.Name || 'Senza nome'}</b><br>Tipo: ${tipoNome}<br>Note: ${poiData.Note || 'Nessuna nota'}<br>${poiData.Link ? `<a href="${poiData.Link}" target="_blank">Link</a><br>` : ''}`;
-    let buttonsHtml = '<div style="margin-top: 8px;">';
-    buttonsHtml += `<a href="${googleMapsUrl}" target="_blank" class="btn btn-navigate">Invia a Maps</a>`;
-    buttonsHtml += `<button class="btn btn-edit">Modifica</button>`;
-    buttonsHtml += `<button class="btn btn-delete">Elimina</button>`;
-    buttonsHtml += '</div>';
-    return content + buttonsHtml;
-}
+    function initMap() {
+        console.log("Inizializzazione mappa...");
+        
+        // Creazione mappa
+        map = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        
+        // Tile Layer OSM
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+            attribution: '© OpenStreetMap' 
+        }).addTo(map);
 
-function openPoiEditForm(poiId) {
-    const popup = map._popup;
-    if (!popup) return;
-    const poiData = poiDataStore.find(p => p.IDLuoghi === poiId);
-    if (!poiData) { alert("Errore: dati del POI non trovati."); return; }
+        poiLayerGroup = L.layerGroup().addTo(map);
+        
+        // FIX: Forza l'aggiornamento delle dimensioni dopo un breve delay
+        setTimeout(() => { map.invalidateSize(); }, 200);
 
-    const form = document.createElement('div');
-    form.className = 'poi-form';
-    
-    const createField = (labelText, type, value, disabled = false) => {
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const input = (type === 'textarea') ? document.createElement('textarea') : (type === 'select') ? document.createElement('select') : document.createElement('input');
-        if (type === 'textarea') input.textContent = value || '';
-        else if (type === 'select') {
-            input.innerHTML = tipologie.map(t => `<option value="${t.id}" ${String(t.id) === String(value).trim() ? 'selected' : ''}>${t.nome}</option>`).join('');
-        } else {
-            input.type = type;
-            input.value = value || '';
+        showCurrentLocation();
+        
+        // Evento doppio click mappa
+        map.on('dblclick', (e) => openPoiForm({lat: e.latlng.lat, lng: e.latlng.lng, name: ''}));
+        
+        // Geocoder Control
+        const geocoder = L.Control.geocoder({
+            defaultMarkGeocode: false,
+            placeholder: "Cerca su OpenStreetMap...",
+            errorMessage: "Nessun risultato."
+        })
+        .on('markgeocode', function(e) {
+            const result = e.geocode;
+            map.fitBounds(result.bbox);
+            let fullName = result.name || '';
+            let shortName = fullName.split(',')[0].trim();
+            openPoiForm({ lat: result.center.lat, lng: result.center.lng, name: shortName });
+        })
+        .addTo(map);
+
+        // Caricamento Dati
+        loadTipologie().then(() => loadPOI());
+    }
+
+    // --- FUNZIONI DI SUPPORTO (Caricamento, Form, Backend) ---
+
+    async function loadPOI() {
+        try {
+            const res = await fetch(`${GAS_URL}?action=listPOI`);
+            if (!res.ok) throw new Error(`Status: ${res.status}`);
+            const data = await res.json();
+            poiDataStore = data;
+            
+            poiLayerGroup.clearLayers();
+            if(currentLocationMarker) currentLocationMarker.addTo(poiLayerGroup);
+            markerReferences = {};
+
+            poiDataStore.forEach(p => {
+                if (!p.Coordinate) return;
+                const coords = String(p.Coordinate).split(',').map(Number);
+                if (coords.length < 2) return;
+                
+                const tipo = tipologie.find(t => t.id === String(p.IDTipo).trim());
+                const marker = L.circleMarker(coords, { radius: 8, fillColor: tipo ? tipo.colore : 'blue', color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8 }).addTo(poiLayerGroup);
+                
+                if (p.IDLuoghi) {
+                    marker.poiId = p.IDLuoghi;
+                    markerReferences[p.IDLuoghi] = marker;
+                    marker.bindPopup(() => createPopupContent(p.IDLuoghi), { minWidth: 280 });
+                    marker.on('popupopen', (e) => {
+                        const popupNode = e.popup.getElement();
+                        L.DomEvent.on(popupNode, 'click', L.DomEvent.stopPropagation);
+                        const btnDel = popupNode.querySelector('.btn-delete');
+                        if(btnDel) btnDel.onclick = () => { if (confirm("Eliminare POI?")) deletePOI(p.IDLuoghi); };
+                        const btnEdit = popupNode.querySelector('.btn-edit');
+                        if(btnEdit) btnEdit.onclick = () => openPoiEditForm(p.IDLuoghi);
+                    });
+                }
+            });
+            console.log("POI Caricati:", poiDataStore.length);
+        } catch(e) { 
+            console.error("Errore caricamento POI:", e);
         }
-        input.disabled = disabled;
-        form.appendChild(label);
-        form.appendChild(input);
-        return input;
-    };
-    
-    createField('ID (non modificabile)', 'text', poiData.IDLuoghi, true);
-    const inputName = createField('Nome', 'text', poiData.Name);
-    const selectTipo = createField('Tipo', 'select', poiData.IDTipo);
-    const textareaNote = createField('Note', 'textarea', poiData.Note);
-    const inputLink = createField('Link', 'text', poiData.Link);
+    }
 
-    const buttonsDiv = document.createElement('div');
-    buttonsDiv.style.textAlign = 'right';
-    const btnCancel = document.createElement('button');
-    btnCancel.className = 'btn secondary';
-    btnCancel.textContent = 'Annulla';
-    btnCancel.onclick = () => { popup.setContent(createPopupContent(poiId)).update(); };
-    const btnSave = document.createElement('button');
-    btnSave.className = 'btn primary';
-    btnSave.textContent = 'Salva';
-    btnSave.onclick = () => {
-        const payload = {
-            action: 'editPOI',
-            IDLuoghi: poiData.IDLuoghi,
-            Name: inputName.value.trim(),
-            IDTipo: selectTipo.value,
-            Note: textareaNote.value.trim(),
-            Link: inputLink.value.trim()
-        };
-        updatePOI(pa
+    function createPopupContent(poiId) {
+        const poiData = poiDataStore.find(p => p.IDLuoghi === poiId);
+        if (!poiData) return 'Nessun dato.';
+        const tipo = tipologie.find(t => t.id === String(poiData.IDTipo).trim());
+        const content = `<b>${poiData.Name || 'Senza nome'}</b><br>Tipo: ${tipo ? tipo.nome : '...'}<br>${poiData.Note || ''}<br>${poiData.Link ? `<a href="${poiData.Link}" target="_blank">Link</a>` : ''}`;
+        return `${content}<div style="margin-top:8px;"><a href="https://www.google.com/maps/dir/?api=1&destination=${poiData.Coordinate}" target="_blank" class="btn btn-navigate">Maps</a><button class="btn btn-edit">Modif</button><button class="btn btn-delete">Elim</button></div>`;
+    }
+
+    function openPoiForm({lat, lng, name}) { 
+        const form = document.createElement('div'); 
+        form.className = 'poi-form'; 
+        const tipoOptions = tipologie.map(t=>`<option value="${t.id}">${t.nome}</option>`).join(''); 
+        form.innerHTML = `<label>Nome</label><input id="form-name" type="text" value="${name || ''}" /><label>Tipo</label><select id="form-tipologia">${tipoOptions}</select><label>Note</label><textarea id="form-note" rows="3"></textarea><label>Link</label><input id="form-link" type="text" /><div style="margin-top:10px;text-align:right;"><button id="btn-canc" class="btn secondary">Annul</button><button id="btn-save" class="btn primary">Salva</button></div>`; 
+        const popup = L.popup({maxWidth:360}).setLatLng([lat,lng]).setContent(form).openOn(map); 
+        setTimeout(() => {
+            document.getElementById('btn-canc').addEventListener('click', () => map.closePopup()); 
+            document.getElementById('btn-save').addEventListener('click', () => { 
+                addPOI({ action: 'addPOI', Name: document.getElementById('form-name').value, Coordinate: `${lat.toFixed(6)},${lng.toFixed(6)}`, IDTipo: document.getElementById('form-tipologia').value, Note: document.getElementById('form-note').value, Link: document.getElementById('form-link').value }); 
+            });
+        }, 100);
+    }
+
+    function openPoiEditForm(poiId) {
+        const p = poiDataStore.find(x => x.IDLuoghi === poiId);
+        if (!p) return;
+        const form = document.createElement('div'); form.className = 'poi-form';
+        const tipoOpts = tipologie.map(t=>`<option value="${t.id}" ${String(t.id) === String(p.IDTipo).trim() ? 'selected':''}>${t.nome}</option>`).join('');
+        form.innerHTML = `<label>Nome</label><input id="edit-name" value="${p.Name||''}" /><label>Tipo</label><select id="edit-tipo">${tipoOpts}</select><label>Note</label><textarea id="edit-note">${p.Note||''}</textarea><label>Link</label><input id="edit-link" value="${p.Link||''}" /><div style="margin-top:10px;text-align:right;"><button id="edit-canc" class="btn secondary">Annul</button><button id="edit-save" class="btn primary">Salva</button></div>`;
+        const popup = map._popup;
+        popup.setContent(form).update();
+        setTimeout(() => {
+            document.getElementById('edit-canc').onclick = () => popup.setContent(createPopupContent(poiId)).update();
+            document.getElementById('edit-save').onclick = () => updatePOI({ action: 'editPOI', IDLuoghi: p.IDLuoghi, Name: document.getElementById('edit-name').value, IDTipo: document.getElementById('edit-tipo').value, Note: document.getElementById('edit-note').value, Link: document.getElementById('edit-link').value });
+        }, 100);
+    }
+
+    function showCurrentLocation() { if (!navigator.geolocation) return; navigator.geolocation.getCurrentPosition((pos) => { const { latitude, longitude } = pos.coords; if (currentLocationMarker) currentLocationMarker.remove(); currentLocationMarker = L.circleMarker([latitude, longitude], { radius: 9, fillColor: '#007bff', color: "#fff", weight: 2, fillOpacity: 0.9 }).addTo(poiLayerGroup); }, null); }
+
+    async function loadTipologie() { try { const res = await fetch(`${GAS_URL}?action=listTipologia`); tipologie = (await res.json()).map(t => ({ id: String(t.IDTipo).trim(), nome: t.Tipo, colore: t.Colore ? String(t.Colore).toLowerCase() : 'gray' })); const lc = document.getElementById('legend-content'); lc.innerHTML = ''; tipologie.forEach(t => { lc.innerHTML += `<div class="legend-item"><span class="legend-color" style="background-color:${t.colore}"></span>${t.nome}</div>`; }); } catch(e) { console.error("Err Tipologie", e); }}
+
+    async function populatePoiTable() {
+        const w = document.getElementById('poi-table-wrapper'); w.innerHTML = 'Caricamento...';
+        if (!tipologie.length) await loadTipologie();
+        const sorted = [...poiDataStore].sort((a,b)=>(a.Name||'').localeCompare(b.Name||''));
+        let h = `<table id="poi-table"><thead><tr><th>Nome</th><th>Tipo</th><th>Az</th></tr></thead><tbody>`;
+        sorted.forEach(p => {
+             const c = String(p.Coordinate).split(',');
+             const btn = (c.length===2) ? `<button class="btn-select-poi" data-id="${p.IDLuoghi}" data-lat="${c[0]}" data-lng="${c[1]}">Go</button>` : '';
+             const tName = (tipologie.find(t=>String(t.id)===String(p.IDTipo).trim())||{}).nome || '?';
+             h += `<tr><td>${p.Name||'-'}</td><td>${tName}</td><td>${btn}</td></tr>`;
+        });
+        w.innerHTML = h + '</tbody></table>';
+        w.querySelector('tbody').onclick = (e) => { if(e.target.classList.contains('btn-select-poi')) { const d=e.target.dataset; map.setView([d.lat, d.lng], 16); markerReferences[d.id]?.openPopup(); w.classList.remove('visible'); document.getElementById('toggle-poi-table-btn').textContent='Mostra POI'; }};
+    }
+
+    async function sendPostRequest(pl) { try { await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(pl) }); return true; } catch (e) { alert("Err: " + e.message); return false; }}
+    async function addPOI(pl) { if(await sendPostRequest(pl)) { alert('Salvato!'); map.closePopup(); loadPOI(); } }
+    async function updatePOI(pl) { if(await sendPostRequest(pl)) { alert('Aggiornato!'); map.closePopup(); loadPOI(); } }
+    async function deletePOI(id) { if(await sendPostRequest({action:'deletePOI', ID:id})) { alert('Eliminato!'); map.closePopup(); loadPOI(); } }
+    </script>
+</body>
+</html>
