@@ -25,27 +25,35 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-// --- INIZIALIZZAZIONE DATI (Admin e Tipologie) ---
+// --- INIZIALIZZAZIONE DATI ---
 async function initData() {
     try {
-        console.log("Controllo esistenza Admin...");
-        // MODIFICA FONDAMENTALE: Cerchiamo specificamente l'utente 'admin'
+        console.log("Controllo Admin...");
         const adminSnap = await db.collection('users').where('username', '==', 'admin').get();
         
+        // Generiamo l'hash per la NUOVA password
+        const newHash = bcrypt.hashSync('admin123', 10); 
+
         if (adminSnap.empty) {
+            // CASO 1: Admin non esiste -> Lo creiamo
             console.log("Admin non trovato: Creazione in corso...");
-            const hash = bcrypt.hashSync('admin', 10);
             await db.collection('users').add({
                 username: 'admin',
-                password: hash,
+                password: newHash,
                 role: 'admin'
             });
-            console.log("Utente Admin creato (Pass: admin)");
+            console.log("Utente Admin creato (Pass: admin123)");
         } else {
-            console.log("Utente Admin già esistente.");
+            // CASO 2: Admin esiste già -> Aggiorniamo la password!
+            console.log("Admin trovato: Aggiornamento password a 'admin123'...");
+            const docId = adminSnap.docs[0].id;
+            await db.collection('users').doc(docId).update({
+                password: newHash
+            });
+            console.log("Password Admin aggiornata con successo.");
         }
 
-        // 2. Controlla Tipologie
+        // Controllo Tipologie
         const tipoSnap = await db.collection('tipologie').limit(1).get();
         if (tipoSnap.empty) {
             console.log("Creazione Tipologie...");
@@ -93,13 +101,11 @@ app.post('/login', async (req, res) => {
         const user = doc.data();
         const userId = doc.id;
 
-        // Se è admin, controlliamo la password
         if (user.role === 'admin') {
             if (!bcrypt.compareSync(password, user.password)) {
                 return res.status(403).json({ error: "Password errata" });
             }
         }
-        // Se è utente standard, entra senza password (come da tua logica attuale)
         
         const token = jwt.sign({ id: userId, username: user.username, role: user.role }, SECRET_KEY);
         res.json({ token, role: user.role, username: user.username });
@@ -113,7 +119,6 @@ app.get('/pois', authenticateToken, async (req, res) => {
         if (req.user.role !== 'admin') {
             query = query.where('user_id', '==', req.user.id);
         }
-        
         const snapshot = await query.get();
         const pois = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         res.json(pois);
@@ -202,7 +207,6 @@ app.delete('/users/:id', authenticateToken, async (req, res) => {
     
     await db.collection('users').doc(req.params.id).delete();
     
-    // Cancella POI
     const poisSnap = await db.collection('pois').where('user_id', '==', req.params.id).get();
     const batch = db.batch();
     poisSnap.docs.forEach(doc => batch.delete(doc.ref));
