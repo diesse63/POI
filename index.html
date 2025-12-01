@@ -83,6 +83,7 @@
     .btn-danger { background: #dc3545; }
     .btn-secondary { background: #6c757d; }
     .btn-info { background: #17a2b8; }
+    .btn-success { background: #28a745; } /* NUOVO STILE PER GOOGLE MAPS */
     .btn-xs { padding: 2px 6px; font-size: 11px; }
 
     .poi-form input, .poi-form select, .poi-form textarea { width: 100%; margin-bottom: 8px; padding: 5px; box-sizing: border-box; }
@@ -297,7 +298,7 @@
             m.bindPopup(createPopupContent(p));
             markers[p.id] = m;
 
-            // Tabella - AGGIUNTE VIRGOLETTE AGLI ID
+            // Tabella - ID tra virgolette
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${p.name}</td><td>${t ? t.Tipo : '?'}</td><td style="white-space:nowrap">
                 <button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button>
@@ -311,7 +312,7 @@
         const t = tipologie.find(x => x.IDTipo == p.type);
         const ownerInfo = currentUser.role === 'admin' ? `<br><i>Utente: ${p.owner}</i>` : '';
         
-        // Popup con ID tra virgolette
+        // Popup con ID tra virgolette e NUOVO BOTTONE MAPS
         return `
             <b>${p.name}</b><br>
             Tipo: ${t ? t.Tipo : '-'}<br>
@@ -320,7 +321,8 @@
             ${ownerInfo}
             <div style="margin-top:10px; display:flex; gap:5px; flex-wrap:wrap;">
                 <button class="btn btn-primary btn-xs" onclick="openEditForm('${p.id}')">Modifica</button>
-                <button class="btn btn-info btn-xs" onclick="searchWikiById('${p.id}')">Cerca su Wiki</button>
+                <button class="btn btn-info btn-xs" onclick="searchWikiById('${p.id}')">Wiki</button>
+                <button class="btn btn-success btn-xs" onclick="openGoogleMaps(${p.lat}, ${p.lng})">Maps 🗺️</button>
                 <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>
             </div>
         `;
@@ -332,6 +334,12 @@
             const url = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}`;
             window.open(url, '_blank');
         }
+    }
+
+    // NUOVA FUNZIONE: Apre Google Maps con le coordinate
+    function openGoogleMaps(lat, lng) {
+        const url = `https://www.google.com/maps?q=${lat},${lng}`;
+        window.open(url, '_blank');
     }
 
     // --- FORM DI CREAZIONE ---
