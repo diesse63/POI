@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI Autonoma</title>
+<title>Mappa POI con GPS</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -62,13 +62,13 @@
     .user-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0; }
     .btn-xs { padding: 2px 6px; font-size: 11px; cursor: pointer; }
 
-    /* Tabella POI (CORRETTO Z-INDEX) */
+    /* Tabella POI */
     #poi-table-wrapper {
         position: absolute; bottom: 60px; left: 10px; width: 350px;
         background: white; border-radius: 8px; padding: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none;
         max-height: 300px; overflow-y: auto; pointer-events: auto;
-        z-index: 3000; /* MOLTO IMPORTANTE: SOPRA LA MAPPA */
+        z-index: 3000;
     }
     #poi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     #poi-table th, #poi-table td { border: 1px solid #eee; padding: 5px; text-align: left; }
@@ -85,10 +85,7 @@
     .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 8px; border: 1px solid #333; }
 
     /* Controlli Basso Sinistra */
-    #bottom-left { 
-        position: absolute; bottom: 10px; left: 10px; 
-        pointer-events: auto; z-index: 3000; 
-    }
+    #bottom-left { position: absolute; bottom: 10px; left: 10px; pointer-events: auto; z-index: 3000; }
 
     /* Form e Bottoni */
     .btn { padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; color: white; margin: 2px; }
@@ -166,12 +163,13 @@
 
     <script>
     // CONFIGURAZIONE
-    const API_URL = window.location.origin; // Usa automaticamente l'indirizzo corrente
+    const API_URL = window.location.origin;
     let token = localStorage.getItem('poi_token');
     let currentUser = null;
     let tipologie = [];
     let poiData = [];
     let map, poiLayer, markers = {};
+    let userMarker = null; // Variabile per il marker della posizione utente
 
     // --- AVVIO ---
     document.addEventListener('DOMContentLoaded', () => {
@@ -227,7 +225,6 @@
             loadUsers();
         }
 
-        // Inizializza la mappa se non esiste ancora
         if(!map) initMap();
     }
 
@@ -250,12 +247,17 @@
         return res.json();
     }
 
-    // --- MAPPA ---
+    // --- MAPPA E GPS ---
     async function initMap() {
-        map = L.map('map').setView([42.7603, 11.1143], 15);
+        // Coordinate di default (Italia centrale) se il GPS non va
+        map = L.map('map').setView([42.7603, 11.1143], 6);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
         poiLayer = L.layerGroup().addTo(map);
         
+        // AVVIA GEOLOCALIZZAZIONE UTENTE
+        locateUser();
+
         // Ricerca
         L.Control.geocoder({
             defaultMarkGeocode: false, position: 'topleft', placeholder: "Cerca..."
@@ -274,6 +276,41 @@
         // Caricamento Dati
         await loadTipologie();
         await loadPois();
+    }
+
+    // Funzione per trovare la posizione utente
+    function locateUser() {
+        if (!navigator.geolocation) {
+            console.log("Geolocation non supportata dal browser");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+
+                // Rimuove marker precedente se esiste
+                if (userMarker) {
+                    map.removeLayer(userMarker);
+                }
+
+                // Aggiungi marker "Tu sei qui" (Pin Blu standard di Leaflet)
+                userMarker = L.marker([lat, lng])
+                    .addTo(map)
+                    .bindPopup(`<b>Tu sei qui!</b><br>Precisione: ${Math.round(accuracy)}m`)
+                    .openPopup();
+
+                // Centra la mappa sull'utente
+                map.setView([lat, lng], 15);
+            },
+            (error) => {
+                console.warn("Errore GPS o permesso negato:", error.message);
+                // Se fallisce resta sulla vista di default
+            },
+            { enableHighAccuracy: true } // Richiede massima precisione GPS
+        );
     }
 
     // --- GESTIONE DATI ---
@@ -309,14 +346,14 @@
             const tipo = tipologie.find(t => t.IDTipo == p.type);
             const color = tipo ? tipo.Colore : 'gray';
             
-            // Marker sulla mappa
+            // Marker POI (Cerchio colorato)
             const m = L.circleMarker([p.lat, p.lng], {
                 radius: 8, fillColor: color, color: '#000', weight: 1, fillOpacity: 0.8
             }).addTo(poiLayer);
             m.bindPopup(createPopup(p));
             markers[p.id] = m;
 
-            // Riga nella tabella
+            // Riga Tabella
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${p.name}</td>
@@ -350,20 +387,20 @@
     async function saveNewPoi(payload) {
         await api('/pois', 'POST', payload);
         map.closePopup();
-        loadPois(); // Ricarica tutto
+        loadPois();
     }
 
     async function updatePoi(id, payload) {
         await api(`/pois/${id}`, 'PUT', payload);
         map.closePopup();
-        loadPois(); // Ricarica tutto
+        loadPois();
     }
 
     async function deletePoi(id) {
         if(confirm("Sei sicuro di voler eliminare questo punto?")) {
             await api(`/pois/${id}`, 'DELETE');
             map.closePopup();
-            loadPois(); // Ricarica tutto e aggiorna la tabella
+            loadPois();
         }
     }
 
@@ -428,8 +465,7 @@
         if(m) {
             map.setView(m.getLatLng(), 17);
             m.openPopup();
-            // Nasconde la tabella su mobile per vedere la mappa, 
-            // ma puoi togliere questa riga se preferisci che resti aperta.
+            // Nasconde la tabella su mobile
             if(window.innerWidth < 600) {
                  document.getElementById('poi-table-wrapper').style.display = 'none';
             }
