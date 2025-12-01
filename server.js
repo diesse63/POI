@@ -1,6 +1,5 @@
-
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const admin = require('firebase-admin');
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -9,56 +8,61 @@ const path = require('path');
 
 const app = express();
 
-// RAILWAY FORNISCE LA PORTA TRAMITE ENV, ALTRIMENTI USA 3000
+// --- CONFIGURAZIONE FIREBASE ---
+// Legge la chiave che hai messo nelle variabili di Railway
+const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+const db = admin.firestore();
+// -------------------------------
+
 const PORT = process.env.PORT || 3000; 
 const SECRET_KEY = "chiave_segreta_locale_super_sicura";
 
 app.use(cors());
 app.use(bodyParser.json());
-
-// Serve i file statici (HTML, CSS, JS frontend) dalla cartella corrente
 app.use(express.static(path.join(__dirname, '.')));
 
-// Connessione DB
-const db = new sqlite3.Database('./mappa_poi.db', (err) => {
-    if (err) {
-        console.error("ERRORE CRITICO DB:", err.message);
-    } else {
-        console.log("Connesso al database SQLite.");
-    }
-});
-
-// Inizializzazione Tabelle e Dati
-db.serialize(() => {
-    db.run("PRAGMA foreign_keys = ON");
-    db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT DEFAULT 'user')`);
-    db.run(`CREATE TABLE IF NOT EXISTS tipologie (id INTEGER PRIMARY KEY, tipo TEXT, colore TEXT)`);
-    db.run(`CREATE TABLE IF NOT EXISTS pois (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, lat REAL, lng REAL, type INTEGER, note TEXT, link TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`);
-
-    // Primo avvio: Admin
-    db.get("SELECT count(*) as count FROM users", [], (err, row) => {
-        if (!err && row.count === 0) {
-            console.log("Creazione Admin Default...");
+// --- INIZIALIZZAZIONE DATI ---
+async function initData() {
+    try {
+        // Crea Admin se non esiste
+        const usersSnap = await db.collection('users').limit(1).get();
+        if (usersSnap.empty) {
+            console.log("Creazione Admin...");
             const hash = bcrypt.hashSync('admin', 10);
-            db.run(`INSERT INTO users (username, password, role) VALUES (?, ?, ?)`, ['admin', hash, 'admin']);
+            await db.collection('users').add({ username: 'admin', password: hash, role: 'admin' });
         }
-    });
-    
-    // Primo avvio: Tipologie
-    db.get("SELECT count(*) as count FROM tipologie", [], (err, row) => {
-        if (!err && row.count === 0) {
+        // Crea Tipologie se non esistono
+        const tipoSnap = await db.collection('tipologie').limit(1).get();
+        if (tipoSnap.empty) {
             console.log("Creazione Tipologie...");
-            const stmt = db.prepare("INSERT INTO tipologie (id, tipo, colore) VALUES (?, ?, ?)");
-            stmt.run(1, "Generico", "blue");
-            stmt.run(2, "Natura", "green");
-            stmt.run(3, "Cultura", "purple");
-            stmt.run(4, "Servizi", "orange");
-            stmt.run(5, "Ristorazione", "red");
-            stmt.finalize();
+            const batch = db.batch();
+            const defaults = [
+                { id: 1, tipo: "Località/Via/Piazza", colore: "blue" },
+                { id: 2, tipo: "Monumento", colore: "green" },
+                { id: 3, tipo: "Parco", colore: "purple" },
+                { id: 4, tipo: "Parcheggio", colore: "orange" },
+                { id: 5, tipo: "Ristorante", colore: "red" }
+		{ id: 6, tipo: "Albergo", colore: "yellow" }
+		{ id: 7, tipo: "Parcheggio", colore: "white" }
+		{ id: 8, tipo: "Museo", colore: "black" }
+		{ id: 9, tipo: "Chiesa", colore: "pink" }
+            ];
+            defaults.forEach(d => {
+                const docRef = db.collection('tipologie').doc(d.id.toString());
+                batch.set(docRef, { Tipo: d.tipo, Colore: d.colore, IDTipo: d.id });
+            });
+            await batch.commit();
         }
-    });
-});
+    } catch (error) { console.error("Errore init:", error); }
+}
+initData();
 
+// --- MIDDLEWARE ---
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -70,90 +74,96 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// LOGIN
-app.post('/login', (req, res) => {
+// --- LOGIN ---
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    db.get(`SELECT * FROM users WHERE username = ?`, [username], async (err, user) => {
-        if (err || !user) return res.status(403).json({ error: "Utente non trovato" });
-
-        if (user.role === 'admin') {
-            if (!bcrypt.compareSync(password, user.password)) return res.status(403).json({ error: "Password errata" });
-        }
+    try {
+        const snapshot = await db.collection('users').where('username', '==', username).get();
+        if (snapshot.empty) return res.status(403).json({ error: "Utente non trovato" });
+        const doc = snapshot.docs[0];
+        const user = doc.data();
+        if (user.role === 'admin' && !bcrypt.compareSync(password, user.password)) 
+            return res.status(403).json({ error: "Password errata" });
         
-        const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET_KEY);
+        const token = jwt.sign({ id: doc.id, username: user.username, role: user.role }, SECRET_KEY);
         res.json({ token, role: user.role, username: user.username });
-    });
+    } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// POI ROUTES
-app.get('/pois', authenticateToken, (req, res) => {
-    let q = "SELECT pois.*, users.username as owner FROM pois JOIN users ON pois.user_id = users.id";
-    let p = [];
-    if (req.user.role !== 'admin') { q += " WHERE pois.user_id = ?"; p.push(req.user.id); }
-    db.all(q, p, (err, rows) => {
-        if(err) return res.status(500).json({error: err.message});
-        res.json(rows);
-    });
+// --- POI ROUTES ---
+app.get('/pois', authenticateToken, async (req, res) => {
+    try {
+        let query = db.collection('pois');
+        if (req.user.role !== 'admin') query = query.where('user_id', '==', req.user.id);
+        const snapshot = await query.get();
+        res.json(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-app.post('/pois', authenticateToken, (req, res) => {
-    const { name, lat, lng, type, note, link } = req.body;
-    db.run(`INSERT INTO pois (user_id, name, lat, lng, type, note, link) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
-        [req.user.id, name, lat, lng, type, note, link], function(err) { 
-            if(err) return res.status(500).json({error: err.message});
-            res.json({ message: "OK", id: this.lastID }); 
-        });
+app.post('/pois', authenticateToken, async (req, res) => {
+    try {
+        const { name, lat, lng, type, note, link } = req.body;
+        const newPoi = {
+            user_id: req.user.id, owner: req.user.username,
+            name, lat, lng, type, note, link,
+            created_at: admin.firestore.FieldValue.serverTimestamp()
+        };
+        const docRef = await db.collection('pois').add(newPoi);
+        res.json({ message: "OK", id: docRef.id });
+    } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-app.put('/pois/:id', authenticateToken, (req, res) => {
-    const { name, type, note, link } = req.body;
-    db.get("SELECT user_id FROM pois WHERE id = ?", [req.params.id], (err, row) => {
-       if (!row || (req.user.role !== 'admin' && row.user_id !== req.user.id)) return res.status(403).json({error: "Vietato"});
-       db.run(`UPDATE pois SET name=?, type=?, note=?, link=? WHERE id=?`, [name, type, note, link, req.params.id], ()=>res.json({msg:"OK"}));
-    });
+app.put('/pois/:id', authenticateToken, async (req, res) => {
+    try {
+        const docRef = db.collection('pois').doc(req.params.id);
+        const { name, type, note, link } = req.body;
+        await docRef.update({ name, type, note, link });
+        res.json({msg:"OK"});
+    } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-app.delete('/pois/:id', authenticateToken, (req, res) => {
-    db.get("SELECT user_id FROM pois WHERE id = ?", [req.params.id], (err, row) => {
-       if (!row || (req.user.role !== 'admin' && row.user_id !== req.user.id)) return res.status(403).json({error: "Vietato"});
-       db.run(`DELETE FROM pois WHERE id=?`, [req.params.id], ()=>res.json({msg:"Eliminato"}));
-    });
+app.delete('/pois/:id', authenticateToken, async (req, res) => {
+    try {
+        await db.collection('pois').doc(req.params.id).delete();
+        res.json({msg:"Eliminato"});
+    } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-app.get('/tipologie', (req, res) => {
-    db.all("SELECT id as IDTipo, tipo as Tipo, colore as Colore FROM tipologie", [], (err, rows) => res.json(rows || []));
+// --- UTILITIES ---
+app.get('/tipologie', async (req, res) => {
+    try {
+        const snapshot = await db.collection('tipologie').get();
+        const list = snapshot.docs.map(doc => doc.data());
+        list.sort((a,b) => a.IDTipo - b.IDTipo);
+        res.json(list);
+    } catch(e) { res.json([]); }
 });
 
-// ADMIN USERS
-app.get('/users', authenticateToken, (req, res) => {
+app.get('/users', authenticateToken, async (req, res) => {
     if(req.user.role !== 'admin') return res.sendStatus(403);
-    db.all("SELECT id, username, role FROM users", [], (err, rows) => res.json(rows));
+    const snap = await db.collection('users').get();
+    res.json(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 });
 
-app.post('/users', authenticateToken, (req, res) => {
+app.post('/users', authenticateToken, async (req, res) => {
     if(req.user.role !== 'admin') return res.sendStatus(403);
     const hash = bcrypt.hashSync('nopass', 10);
-    db.run(`INSERT INTO users (username, password, role) VALUES (?, ?, 'user')`, [req.body.username, hash], (err) => {
-        if (err) return res.status(400).json({ error: "Errore o duplicato" });
-        res.json({ message: "Creato" });
-    });
+    await db.collection('users').add({ username: req.body.username, password: hash, role: 'user' });
+    res.json({ message: "Creato" });
 });
 
-app.delete('/users/:id', authenticateToken, (req, res) => {
+app.delete('/users/:id', authenticateToken, async (req, res) => {
     if(req.user.role !== 'admin') return res.sendStatus(403);
-    if(parseInt(req.params.id) === req.user.id) return res.status(400).json({error: "No self-delete"});
-    db.serialize(() => {
-        db.run("DELETE FROM pois WHERE user_id = ?", [req.params.id]);
-        db.run("DELETE FROM users WHERE id = ?", [req.params.id], ()=>res.json({msg:"Eliminato"}));
-    });
+    if(req.params.id === req.user.id) return res.status(400).json({error: "No self-delete"});
+    await db.collection('users').doc(req.params.id).delete();
+    const poisSnap = await db.collection('pois').where('user_id', '==', req.params.id).get();
+    const batch = db.batch();
+    poisSnap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    res.json({msg:"Eliminato"});
 });
 
-// ROUTE DI TEST (Per capire se il server risponde anche senza index.html)
-app.get('/test', (req, res) => {
-    res.send("Il server è attivo!");
-});
-
-// --- FIX PER RAILWAY: Specifica '0.0.0.0' ---
+// AVVIO
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`SERVER ON LINE AVVIATO SU PORTA ${PORT}`);
+    console.log(`SERVER FIREBASE AVVIATO SU PORTA ${PORT}`);
 });
