@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI Autonoma (SQLite)</title>
+<title>Mappa POI Autonoma</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -37,7 +37,7 @@
 
     /* --- MAPPA E UI --- */
     #app-container { display: none; height: 100%; width: 100%; position: relative; }
-    #map { height: 100%; width: 100%; background: #e5e5e5; }
+    #map { height: 100%; width: 100%; background: #e5e5e5; z-index: 1; }
 
     /* UI Overlay */
     .ui-layer { position: absolute; z-index: 1000; pointer-events: none; }
@@ -55,19 +55,20 @@
     #admin-panel {
         position: absolute; top: 60px; right: 10px; width: 280px;
         background: white; border-radius: 8px; padding: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: none; z-index: 2000;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: none; z-index: 4000;
     }
     #admin-panel h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
     .user-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; }
     .user-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0; }
     .btn-xs { padding: 2px 6px; font-size: 11px; cursor: pointer; }
 
-    /* Tabella POI */
+    /* Tabella POI (CORRETTO Z-INDEX) */
     #poi-table-wrapper {
         position: absolute; bottom: 60px; left: 10px; width: 350px;
         background: white; border-radius: 8px; padding: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none;
         max-height: 300px; overflow-y: auto; pointer-events: auto;
+        z-index: 3000; /* MOLTO IMPORTANTE: SOPRA LA MAPPA */
     }
     #poi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     #poi-table th, #poi-table td { border: 1px solid #eee; padding: 5px; text-align: left; }
@@ -78,12 +79,16 @@
         position: absolute; bottom: 20px; right: 10px;
         background: white; padding: 10px; border-radius: 5px;
         box-shadow: 0 1px 5px rgba(0,0,0,0.4); display: none; pointer-events: auto;
+        z-index: 3000;
     }
     .legend-item { display: flex; align-items: center; margin-bottom: 4px; font-size: 13px; }
     .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 8px; border: 1px solid #333; }
 
     /* Controlli Basso Sinistra */
-    #bottom-left { position: absolute; bottom: 10px; left: 10px; pointer-events: auto; }
+    #bottom-left { 
+        position: absolute; bottom: 10px; left: 10px; 
+        pointer-events: auto; z-index: 3000; 
+    }
 
     /* Form e Bottoni */
     .btn { padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; color: white; margin: 2px; }
@@ -116,7 +121,7 @@
 
         <!-- Barra Superiore Destra -->
         <div id="top-bar" class="ui-layer ui-interactive">
-            <span id="welcome-msg" style="background:white; padding:10px; border-radius:4px; display:flex; align-items:center;"></span>
+            <span id="welcome-msg" style="background:white; padding:10px; border-radius:4px; display:flex; align-items:center; box-shadow:0 2px 5px rgba(0,0,0,0.2);"></span>
             <div id="admin-btn" class="icon-btn" title="Pannello Admin" style="display:none;" onclick="toggleAdminPanel()">⚙️</div>
             <div class="icon-btn" title="Aggiorna" onclick="location.reload()">↻</div>
             <div class="icon-btn" title="Esci" onclick="doLogout()">⏻</div>
@@ -150,7 +155,7 @@
             <strong>Legenda</strong>
             <div id="legend-content"></div>
         </div>
-        <div style="position:absolute; bottom:10px; right:10px; pointer-events:auto; z-index:1000;">
+        <div style="position:absolute; bottom:10px; right:10px; pointer-events:auto; z-index:3000;">
             <button class="btn btn-secondary" onclick="toggleLegend()">Legenda</button>
         </div>
     </div>
@@ -161,7 +166,7 @@
 
     <script>
     // CONFIGURAZIONE
-    const API_URL = window.location.origin; // Usa lo stesso dominio
+    const API_URL = window.location.origin; // Usa automaticamente l'indirizzo corrente
     let token = localStorage.getItem('poi_token');
     let currentUser = null;
     let tipologie = [];
@@ -203,8 +208,6 @@
     }
 
     function checkSession() {
-        // Poiché il JWT è stateless, proviamo a caricare i dati. Se fallisce (403), slogghiamo.
-        // Decodifica base del JWT per UI (non sicura, ma ok per visualizzazione)
         try {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -224,7 +227,8 @@
             loadUsers();
         }
 
-        initMap();
+        // Inizializza la mappa se non esiste ancora
+        if(!map) initMap();
     }
 
     // --- API HELPER ---
@@ -261,7 +265,7 @@
             openPoiForm({ lat: r.center.lat, lng: r.center.lng, name: (r.name||'').split(',')[0].trim() });
         }).addTo(map);
 
-        // Doppio click
+        // Doppio click per aggiungere POI
         map.on('dblclick', (e) => openPoiForm({ lat: e.latlng.lat, lng: e.latlng.lng, name: '' }));
 
         // UI Listeners
@@ -274,7 +278,6 @@
 
     // --- GESTIONE DATI ---
     async function loadTipologie() {
-        // Carica dal server, se vuoto usa fallback per permettere il funzionamento
         const data = await api('/tipologie');
         if(data && data.length > 0) {
             tipologie = data;
@@ -306,21 +309,21 @@
             const tipo = tipologie.find(t => t.IDTipo == p.type);
             const color = tipo ? tipo.Colore : 'gray';
             
-            // Marker
+            // Marker sulla mappa
             const m = L.circleMarker([p.lat, p.lng], {
                 radius: 8, fillColor: color, color: '#000', weight: 1, fillOpacity: 0.8
             }).addTo(poiLayer);
             m.bindPopup(createPopup(p));
             markers[p.id] = m;
 
-            // Tabella
+            // Riga nella tabella
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${p.name}</td>
                 <td>${tipo ? tipo.Tipo : '?'}</td>
                 <td style="white-space:nowrap">
                     <button class="btn btn-primary btn-xs" onclick="zoomTo(${p.id})">Vai</button>
-                    <button class="btn btn-danger btn-xs" onclick="deletePoi(${p.id})">X</button>
+                    <button class="btn btn-danger btn-xs" onclick="deletePoi(${p.id})">Cancella</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -347,20 +350,20 @@
     async function saveNewPoi(payload) {
         await api('/pois', 'POST', payload);
         map.closePopup();
-        loadPois();
+        loadPois(); // Ricarica tutto
     }
 
     async function updatePoi(id, payload) {
         await api(`/pois/${id}`, 'PUT', payload);
         map.closePopup();
-        loadPois();
+        loadPois(); // Ricarica tutto
     }
 
     async function deletePoi(id) {
-        if(confirm("Eliminare definitivamente?")) {
+        if(confirm("Sei sicuro di voler eliminare questo punto?")) {
             await api(`/pois/${id}`, 'DELETE');
             map.closePopup();
-            loadPois();
+            loadPois(); // Ricarica tutto e aggiorna la tabella
         }
     }
 
@@ -425,7 +428,11 @@
         if(m) {
             map.setView(m.getLatLng(), 17);
             m.openPopup();
-            document.getElementById('poi-table-wrapper').style.display = 'none';
+            // Nasconde la tabella su mobile per vedere la mappa, 
+            // ma puoi togliere questa riga se preferisci che resti aperta.
+            if(window.innerWidth < 600) {
+                 document.getElementById('poi-table-wrapper').style.display = 'none';
+            }
         }
     }
 
@@ -484,7 +491,6 @@
         if(confirm("Eliminare utente e tutti i suoi POI?")) {
             await api(`/users/${id}`, 'DELETE');
             loadUsers();
-            // Ricarica anche i POI perché ne abbiamo cancellati alcuni
             loadPois();
         }
     }
