@@ -25,33 +25,38 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-// --- INIZIALIZZAZIONE DATI ---
+// --- INIZIALIZZAZIONE DATI (Admin e Tipologie) ---
 async function initData() {
     try {
-        // Crea Admin se non esiste
-        const usersSnap = await db.collection('users').limit(1).get();
-        if (usersSnap.empty) {
-            console.log("Creazione Admin...");
-            const hash = bcrypt.hashSync('admin', 10);
-            await db.collection('users').add({ username: 'admin', password: hash, role: 'admin' });
-        }
+        console.log("Controllo esistenza Admin...");
+        // MODIFICA FONDAMENTALE: Cerchiamo specificamente l'utente 'admin'
+        const adminSnap = await db.collection('users').where('username', '==', 'admin').get();
         
-        // Crea Tipologie se non esistono
-        // NOTA: Se le tipologie esistono già su Firebase, questo blocco viene saltato!
+        if (adminSnap.empty) {
+            console.log("Admin non trovato: Creazione in corso...");
+            const hash = bcrypt.hashSync('admin', 10);
+            await db.collection('users').add({
+                username: 'admin',
+                password: hash,
+                role: 'admin'
+            });
+            console.log("Utente Admin creato (Pass: admin)");
+        } else {
+            console.log("Utente Admin già esistente.");
+        }
+
+        // 2. Controlla Tipologie
         const tipoSnap = await db.collection('tipologie').limit(1).get();
         if (tipoSnap.empty) {
             console.log("Creazione Tipologie...");
             const batch = db.batch();
             const defaults = [
-                { id: 1, tipo: "Monumento", colore: "blue" },
-                { id: 2, tipo: "Parco", colore: "green" },
-                { id: 3, tipo: "Museo", colore: "purple" },
-                { id: 4, tipo: "Ristorante", colore: "orange" },
-                { id: 5, tipo: "Paese/Via/Piazza", colore: "red" }, // <--- ORA C'È LA VIRGOLA
-                { id: 6, tipo: "Mercato", colore: "black" },
-                { id: 7, tipo: "Chiesa", colore: "pink" },
-                { id: 8, tipo: "Paese/Via/Piazza", colore: "cyan" },
-                { id: 9, tipo: "Albergo", colore: "yellow" }    // <--- NUOVA CATEGORIA
+                { id: 1, tipo: "Generico", colore: "blue" },
+                { id: 2, tipo: "Natura", colore: "green" },
+                { id: 3, tipo: "Cultura", colore: "purple" },
+                { id: 4, tipo: "Servizi", colore: "orange" },
+                { id: 5, tipo: "Ristorazione", colore: "red" },
+                { id: 6, tipo: "Albergo", colore: "yellow" }
             ];
             defaults.forEach(d => {
                 const docRef = db.collection('tipologie').doc(d.id.toString());
@@ -59,11 +64,13 @@ async function initData() {
             });
             await batch.commit();
         }
-    } catch (error) { console.error("Errore init:", error); }
+    } catch (error) {
+        console.error("Errore inizializzazione:", error);
+    }
 }
 initData();
 
-// --- MIDDLEWARE ---
+// --- MIDDLEWARE AUTH ---
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -81,12 +88,20 @@ app.post('/login', async (req, res) => {
     try {
         const snapshot = await db.collection('users').where('username', '==', username).get();
         if (snapshot.empty) return res.status(403).json({ error: "Utente non trovato" });
+
         const doc = snapshot.docs[0];
         const user = doc.data();
-        if (user.role === 'admin' && !bcrypt.compareSync(password, user.password)) 
-            return res.status(403).json({ error: "Password errata" });
+        const userId = doc.id;
+
+        // Se è admin, controlliamo la password
+        if (user.role === 'admin') {
+            if (!bcrypt.compareSync(password, user.password)) {
+                return res.status(403).json({ error: "Password errata" });
+            }
+        }
+        // Se è utente standard, entra senza password (come da tua logica attuale)
         
-        const token = jwt.sign({ id: doc.id, username: user.username, role: user.role }, SECRET_KEY);
+        const token = jwt.sign({ id: userId, username: user.username, role: user.role }, SECRET_KEY);
         res.json({ token, role: user.role, username: user.username });
     } catch(e) { res.status(500).json({error: e.message}); }
 });
@@ -95,9 +110,13 @@ app.post('/login', async (req, res) => {
 app.get('/pois', authenticateToken, async (req, res) => {
     try {
         let query = db.collection('pois');
-        if (req.user.role !== 'admin') query = query.where('user_id', '==', req.user.id);
+        if (req.user.role !== 'admin') {
+            query = query.where('user_id', '==', req.user.id);
+        }
+        
         const snapshot = await query.get();
-        res.json(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const pois = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json(pois);
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
@@ -105,7 +124,8 @@ app.post('/pois', authenticateToken, async (req, res) => {
     try {
         const { name, lat, lng, type, note, link } = req.body;
         const newPoi = {
-            user_id: req.user.id, owner: req.user.username,
+            user_id: req.user.id,
+            owner: req.user.username,
             name, lat, lng, type, note, link,
             created_at: admin.firestore.FieldValue.serverTimestamp()
         };
@@ -117,6 +137,14 @@ app.post('/pois', authenticateToken, async (req, res) => {
 app.put('/pois/:id', authenticateToken, async (req, res) => {
     try {
         const docRef = db.collection('pois').doc(req.params.id);
+        const doc = await docRef.get();
+        if (!doc.exists) return res.status(404).json({error: "Non trovato"});
+        
+        const data = doc.data();
+        if (req.user.role !== 'admin' && data.user_id !== req.user.id) {
+            return res.status(403).json({error: "Vietato"});
+        }
+
         const { name, type, note, link } = req.body;
         await docRef.update({ name, type, note, link });
         res.json({msg:"OK"});
@@ -125,12 +153,21 @@ app.put('/pois/:id', authenticateToken, async (req, res) => {
 
 app.delete('/pois/:id', authenticateToken, async (req, res) => {
     try {
-        await db.collection('pois').doc(req.params.id).delete();
+        const docRef = db.collection('pois').doc(req.params.id);
+        const doc = await docRef.get();
+        if (!doc.exists) return res.status(404).json({error: "Non trovato"});
+
+        const data = doc.data();
+        if (req.user.role !== 'admin' && data.user_id !== req.user.id) {
+            return res.status(403).json({error: "Vietato"});
+        }
+
+        await docRef.delete();
         res.json({msg:"Eliminato"});
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// --- UTILITIES ---
+// --- TIPOLOGIE ---
 app.get('/tipologie', async (req, res) => {
     try {
         const snapshot = await db.collection('tipologie').get();
@@ -140,31 +177,41 @@ app.get('/tipologie', async (req, res) => {
     } catch(e) { res.json([]); }
 });
 
+// --- ADMIN USERS ---
 app.get('/users', authenticateToken, async (req, res) => {
     if(req.user.role !== 'admin') return res.sendStatus(403);
     const snap = await db.collection('users').get();
-    res.json(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const users = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(users);
 });
 
 app.post('/users', authenticateToken, async (req, res) => {
     if(req.user.role !== 'admin') return res.sendStatus(403);
     const hash = bcrypt.hashSync('nopass', 10);
-    await db.collection('users').add({ username: req.body.username, password: hash, role: 'user' });
+    await db.collection('users').add({
+        username: req.body.username,
+        password: hash,
+        role: 'user'
+    });
     res.json({ message: "Creato" });
 });
 
 app.delete('/users/:id', authenticateToken, async (req, res) => {
     if(req.user.role !== 'admin') return res.sendStatus(403);
     if(req.params.id === req.user.id) return res.status(400).json({error: "No self-delete"});
+    
     await db.collection('users').doc(req.params.id).delete();
+    
+    // Cancella POI
     const poisSnap = await db.collection('pois').where('user_id', '==', req.params.id).get();
     const batch = db.batch();
     poisSnap.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
+
     res.json({msg:"Eliminato"});
 });
 
-// AVVIO
+// --- FIX PER RAILWAY ---
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`SERVER FIREBASE AVVIATO SU PORTA ${PORT}`);
 });
