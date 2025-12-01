@@ -14,6 +14,7 @@ const SECRET_KEY = "chiave_segreta_locale_super_sicura";
 
 app.use(cors());
 app.use(bodyParser.json());
+
 // Serve i file statici (HTML, CSS, JS frontend) dalla cartella corrente
 app.use(express.static(path.join(__dirname, '.')));
 
@@ -146,8 +147,12 @@ app.delete('/users/:id', authenticateToken, (req, res) => {
     });
 });
 
-// --- MODIFICA CRITICA PER RAILWAY ---
-// Ascolta su 0.0.0.0 (tutte le interfacce) invece di localhost
+// ROUTE DI TEST (Per capire se il server risponde anche senza index.html)
+app.get('/test', (req, res) => {
+    res.send("Il server è attivo!");
+});
+
+// --- FIX PER RAILWAY: Specifica '0.0.0.0' ---
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`SERVER AVVIATO SU PORTA ${PORT}`);
 });
