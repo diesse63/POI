@@ -9,7 +9,6 @@ const path = require('path');
 const app = express();
 
 // --- CONFIGURAZIONE FIREBASE ---
-// Legge la chiave che hai messo nelle variabili di Railway
 const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
 
 admin.initializeApp({
@@ -36,21 +35,23 @@ async function initData() {
             const hash = bcrypt.hashSync('admin', 10);
             await db.collection('users').add({ username: 'admin', password: hash, role: 'admin' });
         }
+        
         // Crea Tipologie se non esistono
+        // NOTA: Se le tipologie esistono già su Firebase, questo blocco viene saltato!
         const tipoSnap = await db.collection('tipologie').limit(1).get();
         if (tipoSnap.empty) {
             console.log("Creazione Tipologie...");
             const batch = db.batch();
             const defaults = [
-                { id: 1, tipo: "Località/Via/Piazza", colore: "blue" },
-                { id: 2, tipo: "Monumento", colore: "green" },
-                { id: 3, tipo: "Parco", colore: "purple" },
-                { id: 4, tipo: "Parcheggio", colore: "orange" },
-                { id: 5, tipo: "Ristorante", colore: "red" }
-		{ id: 6, tipo: "Albergo", colore: "yellow" }
-		{ id: 7, tipo: "Parcheggio", colore: "white" }
-		{ id: 8, tipo: "Museo", colore: "black" }
-		{ id: 9, tipo: "Chiesa", colore: "pink" }
+                { id: 1, tipo: "Monumento", colore: "blue" },
+                { id: 2, tipo: "Parco", colore: "green" },
+                { id: 3, tipo: "Museo", colore: "purple" },
+                { id: 4, tipo: "Ristorante", colore: "orange" },
+                { id: 5, tipo: "Paese/Via/Piazza", colore: "red" }, // <--- ORA C'È LA VIRGOLA
+                { id: 6, tipo: "Mercato", colore: "black" },
+                { id: 7, tipo: "Chiesa", colore: "pink" },
+                { id: 8, tipo: "Paese/Via/Piazza", colore: "cyan" },
+                { id: 9, tipo: "Albergo", colore: "yellow" }    // <--- NUOVA CATEGORIA
             ];
             defaults.forEach(d => {
                 const docRef = db.collection('tipologie').doc(d.id.toString());
