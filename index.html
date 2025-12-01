@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI con Wiki</title>
+<title>Mappa POI Firebase</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -82,7 +82,7 @@
     .btn-primary { background: #1976d2; }
     .btn-danger { background: #dc3545; }
     .btn-secondary { background: #6c757d; }
-    .btn-info { background: #17a2b8; } /* Colore per Wikipedia */
+    .btn-info { background: #17a2b8; }
     .btn-xs { padding: 2px 6px; font-size: 11px; }
 
     .poi-form input, .poi-form select, .poi-form textarea { width: 100%; margin-bottom: 8px; padding: 5px; box-sizing: border-box; }
@@ -233,10 +233,8 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
         poiLayer = L.layerGroup().addTo(map);
         
-        // 1. GPS Utente
         locateUser();
 
-        // 2. Ricerca Indirizzi
         L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft', placeholder: "Cerca luogo..." })
         .on('markgeocode', function(e) {
             const r = e.geocode;
@@ -244,13 +242,9 @@
             openPoiForm({ lat: r.center.lat, lng: r.center.lng, name: (r.name||'').split(',')[0].trim() });
         }).addTo(map);
 
-        // 3. Doppio Click
         map.on('dblclick', (e) => openPoiForm({ lat: e.latlng.lat, lng: e.latlng.lng, name: '' }));
-
-        // 4. UI Events
         document.getElementById('btn-show-table').onclick = toggleTable;
         
-        // 5. Carica Dati
         await loadTipologie();
         await loadPois();
     }
@@ -279,7 +273,8 @@
             { IDTipo: 1, Tipo: "Generico", Colore: "blue" },
             { IDTipo: 2, Tipo: "Natura", Colore: "green" },
             { IDTipo: 3, Tipo: "Cultura", Colore: "purple" },
-            { IDTipo: 4, Tipo: "Servizi", Colore: "orange" }
+            { IDTipo: 4, Tipo: "Servizi", Colore: "orange" },
+            { IDTipo: 5, Tipo: "Ristorazione", Colore: "red" }
         ];
         const lc = document.getElementById('legend-content');
         lc.innerHTML = '';
@@ -298,25 +293,25 @@
             const color = t ? t.Colore : 'gray';
             const m = L.circleMarker([p.lat, p.lng], { radius: 8, fillColor: color, color: '#000', weight: 1, fillOpacity: 0.8 }).addTo(poiLayer);
             
-            // Usiamo l'ID per generare il popup per evitare problemi di stringhe
+            // Usiamo l'ID per generare il popup
             m.bindPopup(createPopupContent(p));
             markers[p.id] = m;
 
-            // Tabella
+            // Tabella - AGGIUNTE VIRGOLETTE AGLI ID
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${p.name}</td><td>${t ? t.Tipo : '?'}</td><td style="white-space:nowrap">
-                <button class="btn btn-primary btn-xs" onclick="zoomTo(${p.id})">Vai</button>
-                <button class="btn btn-danger btn-xs" onclick="deletePoi(${p.id})">Cancella</button></td>`;
+                <button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button>
+                <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Cancella</button></td>`;
             tbody.appendChild(tr);
         });
     }
 
-    // --- POPUP GENERATOR (SICURO) ---
+    // --- POPUP GENERATOR ---
     function createPopupContent(p) {
         const t = tipologie.find(x => x.IDTipo == p.type);
         const ownerInfo = currentUser.role === 'admin' ? `<br><i>Utente: ${p.owner}</i>` : '';
         
-        // Costruiamo il popup usando l'ID per chiamare le funzioni, così il nome non rompe l'HTML
+        // Popup con ID tra virgolette
         return `
             <b>${p.name}</b><br>
             Tipo: ${t ? t.Tipo : '-'}<br>
@@ -324,15 +319,13 @@
             ${p.link ? `<a href="${p.link}" target="_blank">Link esterno</a>` : ''}
             ${ownerInfo}
             <div style="margin-top:10px; display:flex; gap:5px; flex-wrap:wrap;">
-                <button class="btn btn-primary btn-xs" onclick="openEditForm(${p.id})">Modifica</button>
-                <!-- Bottone Wikipedia che chiama la funzione con l'ID -->
-                <button class="btn btn-info btn-xs" onclick="searchWikiById(${p.id})">Cerca su Wiki</button>
-                <button class="btn btn-danger btn-xs" onclick="deletePoi(${p.id})">Elimina</button>
+                <button class="btn btn-primary btn-xs" onclick="openEditForm('${p.id}')">Modifica</button>
+                <button class="btn btn-info btn-xs" onclick="searchWikiById('${p.id}')">Cerca su Wiki</button>
+                <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>
             </div>
         `;
     }
 
-    // --- NUOVA LOGICA WIKIPEDIA ---
     function searchWikiById(id) {
         const p = poiData.find(x => x.id === id);
         if(p && p.name) {
@@ -341,7 +334,7 @@
         }
     }
 
-    // --- FORM DI CREAZIONE (NUOVO SALVATAGGIO SICURO) ---
+    // --- FORM DI CREAZIONE ---
     function openPoiForm({lat, lng, name}) {
         const div = document.createElement('div'); div.className = 'poi-form';
         const opts = tipologie.map(t => `<option value="${t.IDTipo}">${t.Tipo}</option>`).join('');
@@ -359,8 +352,6 @@
         
         const popup = L.popup().setLatLng([lat,lng]).setContent(div).openOn(map);
 
-        // Uso un listener diretto invece di onclick inline per evitare errori
-        // Aspettiamo un istante che il popup sia nel DOM
         setTimeout(() => {
             const btn = document.getElementById('btn-save-new');
             if(btn) {
@@ -471,7 +462,7 @@
         users.forEach(u => {
             const li = document.createElement('li');
             li.className = 'user-item';
-            li.innerHTML = `<span>${u.username} (${u.role})</span>${u.role!=='admin' ? `<button class="btn-danger btn-xs" onclick="deleteUser(${u.id})">X</button>`:''}`;
+            li.innerHTML = `<span>${u.username} (${u.role})</span>${u.role!=='admin' ? `<button class="btn-danger btn-xs" onclick="deleteUser('${u.id}')">X</button>`:''}`;
             ul.appendChild(li);
         });
     }
