@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI con GPS</title>
+<title>Mappa POI con Wikipedia</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -169,7 +169,7 @@
     let tipologie = [];
     let poiData = [];
     let map, poiLayer, markers = {};
-    let userMarker = null; // Variabile per il marker della posizione utente
+    let userMarker = null;
 
     // --- AVVIO ---
     document.addEventListener('DOMContentLoaded', () => {
@@ -249,13 +249,11 @@
 
     // --- MAPPA E GPS ---
     async function initMap() {
-        // Coordinate di default (Italia centrale) se il GPS non va
         map = L.map('map').setView([42.7603, 11.1143], 6);
-
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
         poiLayer = L.layerGroup().addTo(map);
         
-        // AVVIA GEOLOCALIZZAZIONE UTENTE
+        // GPS all'avvio
         locateUser();
 
         // Ricerca
@@ -267,66 +265,40 @@
             openPoiForm({ lat: r.center.lat, lng: r.center.lng, name: (r.name||'').split(',')[0].trim() });
         }).addTo(map);
 
-        // Doppio click per aggiungere POI
         map.on('dblclick', (e) => openPoiForm({ lat: e.latlng.lat, lng: e.latlng.lng, name: '' }));
 
-        // UI Listeners
         document.getElementById('btn-show-table').onclick = toggleTable;
         
-        // Caricamento Dati
         await loadTipologie();
         await loadPois();
     }
 
-    // Funzione per trovare la posizione utente
     function locateUser() {
-        if (!navigator.geolocation) {
-            console.log("Geolocation non supportata dal browser");
-            return;
-        }
-
+        if (!navigator.geolocation) { console.log("No GPS"); return; }
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                const accuracy = position.coords.accuracy;
-
-                // Rimuove marker precedente se esiste
-                if (userMarker) {
-                    map.removeLayer(userMarker);
-                }
-
-                // Aggiungi marker "Tu sei qui" (Pin Blu standard di Leaflet)
-                userMarker = L.marker([lat, lng])
-                    .addTo(map)
-                    .bindPopup(`<b>Tu sei qui!</b><br>Precisione: ${Math.round(accuracy)}m`)
-                    .openPopup();
-
-                // Centra la mappa sull'utente
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                if (userMarker) map.removeLayer(userMarker);
+                userMarker = L.marker([lat, lng]).addTo(map)
+                    .bindPopup(`<b>Tu sei qui!</b>`).openPopup();
                 map.setView([lat, lng], 15);
             },
-            (error) => {
-                console.warn("Errore GPS o permesso negato:", error.message);
-                // Se fallisce resta sulla vista di default
-            },
-            { enableHighAccuracy: true } // Richiede massima precisione GPS
+            (err) => console.warn("GPS Error", err),
+            { enableHighAccuracy: true }
         );
     }
 
     // --- GESTIONE DATI ---
     async function loadTipologie() {
         const data = await api('/tipologie');
-        if(data && data.length > 0) {
-            tipologie = data;
-        } else {
-            console.warn("DB Tipologie vuoto, uso default");
-            tipologie = [
-                { IDTipo: 1, Tipo: "Generico", Colore: "blue" },
-                { IDTipo: 2, Tipo: "Natura", Colore: "green" },
-                { IDTipo: 3, Tipo: "Cultura", Colore: "purple" },
-                { IDTipo: 4, Tipo: "Servizi", Colore: "orange" }
-            ];
-        }
+        if(data && data.length > 0) tipologie = data;
+        else tipologie = [
+            { IDTipo: 1, Tipo: "Generico", Colore: "blue" },
+            { IDTipo: 2, Tipo: "Natura", Colore: "green" },
+            { IDTipo: 3, Tipo: "Cultura", Colore: "purple" },
+            { IDTipo: 4, Tipo: "Servizi", Colore: "orange" }
+        ];
         
         const lc = document.getElementById('legend-content');
         lc.innerHTML = '';
@@ -346,14 +318,12 @@
             const tipo = tipologie.find(t => t.IDTipo == p.type);
             const color = tipo ? tipo.Colore : 'gray';
             
-            // Marker POI (Cerchio colorato)
             const m = L.circleMarker([p.lat, p.lng], {
                 radius: 8, fillColor: color, color: '#000', weight: 1, fillOpacity: 0.8
             }).addTo(poiLayer);
             m.bindPopup(createPopup(p));
             markers[p.id] = m;
 
-            // Riga Tabella
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${p.name}</td>
@@ -370,17 +340,28 @@
     function createPopup(p) {
         const t = tipologie.find(x => x.IDTipo == p.type);
         const ownerInfo = currentUser.role === 'admin' ? `<br><i>Utente: ${p.owner}</i>` : '';
+        // FIX: Gestione escape per nomi con apostrofi (es. L'Aquila)
+        const safeName = p.name.replace(/'/g, "\\'"); 
+        
         return `
             <b>${p.name}</b><br>
             Tipo: ${t ? t.Tipo : '-'}<br>
             ${p.note || ''}<br>
             ${p.link ? `<a href="${p.link}" target="_blank">Link</a>` : ''}
             ${ownerInfo}
-            <div style="margin-top:5px; display:flex; gap:5px;">
+            <div style="margin-top:5px; display:flex; gap:5px; flex-wrap:wrap;">
                 <button class="btn btn-primary btn-xs" onclick="openEditForm(${p.id})">Modifica</button>
+                <button class="btn btn-secondary btn-xs" onclick="searchWiki('${safeName}')">Wiki</button>
                 <button class="btn btn-danger btn-xs" onclick="deletePoi(${p.id})">Elimina</button>
             </div>
         `;
+    }
+
+    // --- NUOVA FUNZIONE WIKIPEDIA ---
+    function searchWiki(name) {
+        // Apre Wikipedia Italia in una nuova scheda cercando il nome del POI
+        const url = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
+        window.open(url, '_blank');
     }
 
     // --- AZIONI CRUD ---
@@ -465,7 +446,6 @@
         if(m) {
             map.setView(m.getLatLng(), 17);
             m.openPopup();
-            // Nasconde la tabella su mobile
             if(window.innerWidth < 600) {
                  document.getElementById('poi-table-wrapper').style.display = 'none';
             }
