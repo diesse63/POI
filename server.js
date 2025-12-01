@@ -155,5 +155,5 @@ app.get('/test', (req, res) => {
 
 // --- FIX PER RAILWAY: Specifica '0.0.0.0' ---
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`SERVER AVVIATO SU PORTA ${PORT}`);
+    console.log(`SERVER ON LINE AVVIATO SU PORTA ${PORT}`);
 });
