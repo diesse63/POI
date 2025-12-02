@@ -49,7 +49,7 @@
         max-height: 80vh; overflow-y: auto;
     }
     #poi-table-wrapper {
-        position: absolute; bottom: 60px; left: 10px; width: 350px;
+        position: absolute; bottom: 60px; left: 10px; width: 450px; /* Allargato un po' */
         background: white; border-radius: 8px; padding: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none;
         max-height: 300px; overflow-y: auto; pointer-events: auto; z-index: 3000;
@@ -66,7 +66,7 @@
     }
     .legend-item { display: flex; align-items: center; margin-bottom: 4px; font-size: 13px; }
     .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 8px; border: 1px solid #333; }
-    #bottom-left { position: absolute; bottom: 10px; left: 10px; pointer-events: auto; z-index: 3000; }
+    #bottom-left { position: absolute; bottom: 10px; left: 10px; pointer-events: auto; z-index: 3000; display: flex; gap: 5px; }
 
     /* Bottoni */
     .btn { padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white; margin: 2px; font-size: 12px; }
@@ -75,6 +75,7 @@
     .btn-secondary { background: #6c757d; }
     .btn-info { background: #17a2b8; }
     .btn-success { background: #28a745; }
+    .btn-whatsapp { background: #25D366; } /* Colore WhatsApp */
     .btn-warning { background: #ffc107; color: #333; }
     .btn-xs { padding: 2px 6px; font-size: 11px; }
 
@@ -86,9 +87,56 @@
     
     .leaflet-control-geocoder-icon { width: 30px; height: 30px; border-radius: 4px; }
     .leaflet-touch .leaflet-control-geocoder { margin-top: 10px; }
+
+    /* --- STILI DI STAMPA --- */
+    #print-title { display: none; } /* Nascosto a video */
+
+    @media print {
+        /* Nascondi tutto quello che non serve */
+        #map, #top-bar, #bottom-left, #legend, #admin-panel, #login-screen, .leaflet-control-container, .btn-print-hide {
+            display: none !important;
+        }
+
+        /* Mostra e formatta la tabella */
+        #poi-table-wrapper {
+            display: block !important;
+            position: static !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+
+        #poi-table {
+            border: 1px solid #000;
+            width: 100%;
+        }
+        
+        #poi-table th, #poi-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            color: #000;
+        }
+
+        /* Nascondi la colonna azioni in stampa */
+        #poi-table th:last-child, #poi-table td:last-child {
+            display: none;
+        }
+
+        /* Titolo di stampa */
+        #print-title {
+            display: block;
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+    }
 </style>
 </head>
 <body>
+
+    <!-- Titolo visibile solo in stampa -->
+    <h1 id="print-title">Elenco Punti di Interesse</h1>
 
     <!-- LOGIN -->
     <div id="login-screen">
@@ -132,6 +180,8 @@
 
         <div id="bottom-left">
             <button id="btn-show-table" class="btn btn-secondary" onclick="toggleTable()">Mostra Elenco POI</button>
+            <!-- NUOVO BOTTONE STAMPA -->
+            <button class="btn btn-info" onclick="printPois()">🖨️ Stampa</button>
         </div>
 
         <div id="poi-table-wrapper">
@@ -240,19 +290,13 @@
         .on('markgeocode', function(e) {
             const r = e.geocode;
             map.fitBounds(r.bbox);
-            // Qui usiamo il nome trovato dal geocoder
             openPoiForm(r.center.lat, r.center.lng, (r.name||'').split(',')[0].trim());
         }).addTo(map);
 
         // --- DOPPIO CLICK INTELLIGENTE ---
         map.on('dblclick', async (e) => {
-            // Apriamo subito il form con un testo di attesa
             openPoiForm(e.latlng.lat, e.latlng.lng, "Recupero indirizzo...");
-            
-            // Chiamiamo OpenStreetMap per sapere cosa c'è
             const placeName = await getPlaceDetails(e.latlng.lat, e.latlng.lng);
-            
-            // Aggiorniamo il campo input con il nome trovato
             const nameInput = document.getElementById('new-name');
             if(nameInput) nameInput.value = placeName;
         });
@@ -261,41 +305,28 @@
         await loadPois();
     }
 
-    // NUOVA FUNZIONE: REVERSE GEOCODING
     async function getPlaceDetails(lat, lng) {
         try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`, {
-                headers: { 'User-Agent': 'MappaPOI-App' } // Richiesto da OSM
+                headers: { 'User-Agent': 'MappaPOI-App' }
             });
             const data = await res.json();
             
-            // Logica di priorità richiesta:
-            // 1. Nome specifico (Monumento, Ristorante, Chiesa)
-            // 2. Via
-            // 3. Località
-            
-            if (data.name) return data.name; // Es. "Colosseo"
-            
+            if (data.name) return data.name;
             const addr = data.address;
             if (!addr) return "Posizione generica";
 
-            // Se non c'è 'name', controlliamo se è un edificio speciale
-            if (addr.amenity) return addr.amenity; // Es. "Bar Sport"
-            if (addr.building && addr.building !== 'yes') return addr.building; // Es. "Chiesa di San Marco"
+            if (addr.amenity) return addr.amenity;
+            if (addr.building && addr.building !== 'yes') return addr.building;
             if (addr.tourism) return addr.tourism;
             if (addr.shop) return addr.shop;
+            if (addr.road) return addr.house_number ? `${addr.road}, ${addr.house_number}` : addr.road;
 
-            // Altrimenti restituiamo la Via
-            if (addr.road) {
-                return addr.house_number ? `${addr.road}, ${addr.house_number}` : addr.road;
-            }
-
-            // Altrimenti la località
             return addr.village || addr.town || addr.city || addr.county || "Posizione sconosciuta";
 
         } catch (e) {
             console.error("Errore Geocoding:", e);
-            return ""; // Fallback vuoto se fallisce
+            return ""; 
         }
     }
 
@@ -335,14 +366,15 @@
             m.bindPopup(createPopupContent(p));
             markers[p.id] = m;
 
-            // Tabella
+            // Tabella con bottone WhatsApp e Stampa nascosto
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${p.name}</td>
                 <td>${t ? t.Tipo : '?'}</td>
                 <td style="white-space:nowrap">
-                    <button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button>
-                    <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Cancella</button>
+                    <button class="btn btn-primary btn-xs btn-print-hide" onclick="zoomTo('${p.id}')">Vai</button>
+                    <button class="btn btn-whatsapp btn-xs btn-print-hide" onclick="shareWhatsapp('${p.id}')">WA</button>
+                    <button class="btn btn-danger btn-xs btn-print-hide" onclick="deletePoi('${p.id}')">X</button>
                 </td>`;
             tbody.appendChild(tr);
         });
@@ -362,9 +394,39 @@
                 <button class="btn btn-primary btn-xs" onclick="openEditForm('${safeId}')">Modifica</button>
                 <button class="btn btn-info btn-xs" onclick="searchWiki('${safeId}')">Wiki</button>
                 <button class="btn btn-success btn-xs" onclick="openMaps(${p.lat}, ${p.lng})">Maps 🗺️</button>
+                <button class="btn btn-whatsapp btn-xs" onclick="shareWhatsapp('${safeId}')">WhatsApp</button>
                 <button class="btn btn-danger btn-xs" onclick="deletePoi('${safeId}')">Elimina</button>
             </div>`;
     }
+
+    // --- NUOVE FUNZIONI STAMPA E WHATSAPP ---
+
+    // 1. Funzione Stampa
+    window.printPois = function() {
+        // Usa semplicemente la funzione nativa del browser.
+        // Il CSS @media print (definito sopra) nasconderà automaticamente mappa e menu,
+        // lasciando solo la tabella ordinata.
+        window.print();
+    };
+
+    // 2. Funzione Condividi su WhatsApp
+    window.shareWhatsapp = function(id) {
+        const p = poiData.find(x => x.id === id);
+        if(!p) return;
+
+        const mapsLink = `https://www.google.com/maps?q=${p.lat},${p.lng}`;
+        
+        // Creiamo il testo del messaggio (usa %0A per andare a capo)
+        let text = `📍 *${p.name}*%0A`;
+        text += `🏷️ Tipo: ${tipologie.find(t=>t.IDTipo==p.type)?.Tipo || '-' }%0A`;
+        if(p.note) text += `📝 Note: ${p.note}%0A`;
+        if(p.link) text += `🔗 Link: ${p.link}%0A`;
+        text += `🗺️ Posizione: ${mapsLink}`;
+
+        // Apre WhatsApp Web o l'App
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    };
+
 
     // --- GESTIONE POI ---
     window.openPoiForm = function(lat, lng, name = '') {
