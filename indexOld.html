@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI Admin</title>
+<title>Mappa POI Firebase</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -43,21 +43,14 @@
         cursor: pointer; font-size: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
-    /* Admin Panel ESTESO */
+    /* Admin Panel */
     #admin-panel {
-        position: absolute; top: 60px; right: 10px; width: 320px;
+        position: absolute; top: 60px; right: 10px; width: 280px;
         background: white; border-radius: 8px; padding: 15px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: none; z-index: 4000;
-        max-height: 80vh; overflow-y: auto;
     }
-    #admin-panel h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #1976d2; }
-    #admin-panel h4 { margin: 10px 0 5px 0; font-size: 14px; color: #555; text-transform: uppercase; border-bottom: 1px solid #eee; }
-    
-    .admin-list { list-style: none; padding: 0; max-height: 150px; overflow-y: auto; margin-bottom: 15px; }
-    .admin-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
-    
-    /* Input colori */
-    input[type="color"] { width: 30px; height: 30px; border: none; padding: 0; cursor: pointer; vertical-align: middle; }
+    .user-list { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; }
+    .user-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0; }
 
     /* Tabella POI */
     #poi-table-wrapper {
@@ -90,12 +83,10 @@
     .btn-danger { background: #dc3545; }
     .btn-secondary { background: #6c757d; }
     .btn-info { background: #17a2b8; }
-    .btn-success { background: #28a745; }
-    .btn-warning { background: #ffc107; color: #333; }
+    .btn-success { background: #28a745; } /* NUOVO STILE PER GOOGLE MAPS */
     .btn-xs { padding: 2px 6px; font-size: 11px; }
 
     .poi-form input, .poi-form select, .poi-form textarea { width: 100%; margin-bottom: 8px; padding: 5px; box-sizing: border-box; }
-    .admin-form-row { display: flex; gap: 5px; margin-bottom: 5px; }
     
     .leaflet-control-geocoder-icon { width: 30px; height: 30px; border-radius: 4px; }
     .leaflet-touch .leaflet-control-geocoder { margin-top: 10px; }
@@ -111,6 +102,7 @@
             <input type="password" id="login-pass" placeholder="Password (Solo Admin)" />
             <button onclick="doLogin()">Entra</button>
             <p id="login-msg" style="color:red; font-size:13px;"></p>
+            <p style="font-size:12px; color:#666;">Utenti standard: password ignorata.</p>
         </div>
     </div>
 
@@ -128,24 +120,12 @@
 
         <!-- Admin Panel -->
         <div id="admin-panel" class="ui-interactive">
-            <h3>Pannello Amministratore</h3>
-            
-            <!-- Gestione Utenti -->
-            <h4>Utenti</h4>
-            <div class="admin-form-row">
-                <input type="text" id="new-user-name" placeholder="Nuovo utente..." style="flex:1;">
+            <h3 style="margin-top:0;">Gestione Utenti</h3>
+            <div style="display:flex; gap:5px; margin-bottom:10px;">
+                <input type="text" id="new-user-name" placeholder="Nuovo utente..." style="flex:1; padding:4px;">
                 <button class="btn btn-primary btn-xs" onclick="createUser()">+</button>
             </div>
-            <ul id="user-list" class="admin-list"></ul>
-
-            <!-- Gestione Tipologie -->
-            <h4>Tipologie POI</h4>
-            <div class="admin-form-row">
-                <input type="text" id="new-type-name" placeholder="Nuova Tipologia..." style="flex:1;">
-                <input type="color" id="new-type-color" value="#0000ff" title="Scegli colore">
-                <button class="btn btn-primary btn-xs" onclick="createType()">+</button>
-            </div>
-            <ul id="type-list" class="admin-list"></ul>
+            <ul id="user-list" class="user-list"></ul>
         </div>
 
         <!-- Bottom Left -->
@@ -232,7 +212,6 @@
         if(currentUser.role === 'admin') {
             document.getElementById('admin-btn').style.display = 'flex';
             loadUsers();
-            loadAdminTypes();
         }
         if(!map) initMap();
     }
@@ -278,7 +257,8 @@
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
                 if (userMarker) map.removeLayer(userMarker);
-                userMarker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>Tu sei qui!</b>`).openPopup();
+                userMarker = L.marker([lat, lng]).addTo(map)
+                    .bindPopup(`<b>Tu sei qui!</b>`).openPopup();
                 map.setView([lat, lng], 15);
             },
             (err) => console.warn("GPS non disponibile"),
@@ -290,7 +270,13 @@
     async function loadTipologie() {
         const data = await api('/tipologie');
         if(data && data.length > 0) tipologie = data;
-        
+        else tipologie = [
+            { IDTipo: 1, Tipo: "Generico", Colore: "blue" },
+            { IDTipo: 2, Tipo: "Natura", Colore: "green" },
+            { IDTipo: 3, Tipo: "Cultura", Colore: "purple" },
+            { IDTipo: 4, Tipo: "Servizi", Colore: "orange" },
+            { IDTipo: 5, Tipo: "Ristorazione", Colore: "red" }
+        ];
         const lc = document.getElementById('legend-content');
         lc.innerHTML = '';
         tipologie.forEach(t => lc.innerHTML += `<div class="legend-item"><span class="legend-color" style="background:${t.Colore}"></span>${t.Tipo}</div>`);
@@ -308,9 +294,11 @@
             const color = t ? t.Colore : 'gray';
             const m = L.circleMarker([p.lat, p.lng], { radius: 8, fillColor: color, color: '#000', weight: 1, fillOpacity: 0.8 }).addTo(poiLayer);
             
+            // Usiamo l'ID per generare il popup
             m.bindPopup(createPopupContent(p));
             markers[p.id] = m;
 
+            // Tabella - ID tra virgolette
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${p.name}</td><td>${t ? t.Tipo : '?'}</td><td style="white-space:nowrap">
                 <button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button>
@@ -319,10 +307,12 @@
         });
     }
 
-    // --- POPUP ---
+    // --- POPUP GENERATOR ---
     function createPopupContent(p) {
         const t = tipologie.find(x => x.IDTipo == p.type);
         const ownerInfo = currentUser.role === 'admin' ? `<br><i>Utente: ${p.owner}</i>` : '';
+        
+        // Popup con ID tra virgolette e NUOVO BOTTONE MAPS
         return `
             <b>${p.name}</b><br>
             Tipo: ${t ? t.Tipo : '-'}<br>
@@ -340,17 +330,23 @@
 
     function searchWikiById(id) {
         const p = poiData.find(x => x.id === id);
-        if(p && p.name) window.open(`https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}`, '_blank');
-    }
-    
-    function openGoogleMaps(lat, lng) {
-        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+        if(p && p.name) {
+            const url = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}`;
+            window.open(url, '_blank');
+        }
     }
 
-    // --- POI FORM ---
+    // NUOVA FUNZIONE: Apre Google Maps con le coordinate
+    function openGoogleMaps(lat, lng) {
+        const url = `https://www.google.com/maps?q=${lat},${lng}`;
+        window.open(url, '_blank');
+    }
+
+    // --- FORM DI CREAZIONE ---
     function openPoiForm({lat, lng, name}) {
         const div = document.createElement('div'); div.className = 'poi-form';
         const opts = tipologie.map(t => `<option value="${t.IDTipo}">${t.Tipo}</option>`).join('');
+        
         div.innerHTML = `
             <label>Nome</label><input id="new-name" value="${name||''}">
             <label>Tipo</label><select id="new-type">${opts}</select>
@@ -361,15 +357,24 @@
                 <button class="btn btn-primary" id="btn-save-new">Salva</button>
             </div>
         `;
-        L.popup().setLatLng([lat,lng]).setContent(div).openOn(map);
+        
+        const popup = L.popup().setLatLng([lat,lng]).setContent(div).openOn(map);
+
         setTimeout(() => {
             const btn = document.getElementById('btn-save-new');
-            if(btn) btn.onclick = () => saveNewPoi({
-                name: document.getElementById('new-name').value,
-                lat: parseFloat(lat), lng: parseFloat(lng),
-                type: parseInt(document.getElementById('new-type').value),
-                note: document.getElementById('new-note').value, link: document.getElementById('new-link').value
-            });
+            if(btn) {
+                btn.onclick = () => {
+                    const payload = {
+                        name: document.getElementById('new-name').value,
+                        lat: parseFloat(lat),
+                        lng: parseFloat(lng),
+                        type: parseInt(document.getElementById('new-type').value),
+                        note: document.getElementById('new-note').value,
+                        link: document.getElementById('new-link').value
+                    };
+                    saveNewPoi(payload);
+                };
+            }
         }, 100);
     }
 
@@ -377,6 +382,7 @@
         const p = poiData.find(x => x.id === id); if(!p) return;
         const div = document.createElement('div'); div.className = 'poi-form';
         const opts = tipologie.map(t => `<option value="${t.IDTipo}" ${t.IDTipo==p.type?'selected':''}>${t.Tipo}</option>`).join('');
+        
         div.innerHTML = `
             <label>Nome</label><input id="edit-name" value="${p.name.replace(/"/g, '&quot;')}">
             <label>Tipo</label><select id="edit-type">${opts}</select>
@@ -387,130 +393,104 @@
                 <button class="btn btn-primary" id="btn-update-poi">Aggiorna</button>
             </div>
         `;
+        
         map.closePopup();
         L.popup().setLatLng([p.lat, p.lng]).setContent(div).openOn(map);
+
         setTimeout(() => {
             const btn = document.getElementById('btn-update-poi');
-            if(btn) btn.onclick = () => updatePoi(id, {
-                name: document.getElementById('edit-name').value,
-                type: parseInt(document.getElementById('edit-type').value),
-                note: document.getElementById('edit-note').value, link: document.getElementById('edit-link').value
-            });
+            if(btn) {
+                btn.onclick = () => {
+                    const payload = {
+                        name: document.getElementById('edit-name').value,
+                        type: parseInt(document.getElementById('edit-type').value),
+                        note: document.getElementById('edit-note').value,
+                        link: document.getElementById('edit-link').value
+                    };
+                    updatePoi(id, payload);
+                };
+            }
         }, 100);
     }
 
-    // --- CRUD POI ---
+    // --- CRUD OPS ---
     async function saveNewPoi(payload) {
         if(!payload.name) { alert("Inserisci un nome"); return; }
         await api('/pois', 'POST', payload);
-        map.closePopup(); loadPois();
+        map.closePopup();
+        loadPois();
     }
+
     async function updatePoi(id, payload) {
         await api(`/pois/${id}`, 'PUT', payload);
-        map.closePopup(); loadPois();
+        map.closePopup();
+        loadPois();
     }
+
     async function deletePoi(id) {
         if(confirm("Eliminare definitivamente?")) {
             await api(`/pois/${id}`, 'DELETE');
-            map.closePopup(); loadPois();
+            map.closePopup();
+            loadPois();
         }
     }
 
-    // --- ADMIN: USERS ---
+    // --- UI HELPERS ---
+    function zoomTo(id) {
+        const m = markers[id];
+        if(m) {
+            map.setView(m.getLatLng(), 17);
+            m.openPopup();
+            if(window.innerWidth < 600) document.getElementById('poi-table-wrapper').style.display = 'none';
+        }
+    }
+
+    function toggleTable() {
+        const t = document.getElementById('poi-table-wrapper');
+        const b = document.getElementById('btn-show-table');
+        if(t.style.display === 'block') { t.style.display = 'none'; b.textContent = 'Mostra Elenco'; }
+        else { t.style.display = 'block'; b.textContent = 'Nascondi Elenco'; }
+    }
+    
+    function toggleLegend() {
+        const l = document.getElementById('legend');
+        l.style.display = (l.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function toggleAdminPanel() {
+        const p = document.getElementById('admin-panel');
+        p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    }
+
+    // --- ADMIN ---
     async function loadUsers() {
         const users = await api('/users');
         const ul = document.getElementById('user-list');
         ul.innerHTML = '';
         users.forEach(u => {
             const li = document.createElement('li');
-            li.className = 'admin-item';
+            li.className = 'user-item';
             li.innerHTML = `<span>${u.username} (${u.role})</span>${u.role!=='admin' ? `<button class="btn-danger btn-xs" onclick="deleteUser('${u.id}')">X</button>`:''}`;
             ul.appendChild(li);
         });
     }
+
     async function createUser() {
         const name = document.getElementById('new-user-name').value;
         if(!name) return;
         await api('/users', 'POST', { username: name });
         document.getElementById('new-user-name').value = '';
         loadUsers();
+        alert("Utente creato!");
     }
+
     async function deleteUser(id) {
         if(confirm("Eliminare utente?")) {
             await api(`/users/${id}`, 'DELETE');
-            loadUsers(); loadPois();
-        }
-    }
-
-    // --- ADMIN: TIPOLOGIE ---
-    async function loadAdminTypes() {
-        const types = await api('/tipologie');
-        const ul = document.getElementById('type-list');
-        ul.innerHTML = '';
-        types.forEach(t => {
-            const li = document.createElement('li');
-            li.className = 'admin-item';
-            li.innerHTML = `
-                <div style="display:flex; align-items:center; gap:5px;">
-                    <span class="legend-color" style="background:${t.Colore}"></span>
-                    <span>${t.Tipo}</span>
-                </div>
-                <div>
-                    <button class="btn-warning btn-xs" onclick="promptEditType('${t.idDoc}', '${t.Tipo}', '${t.Colore}')">✎</button>
-                    <button class="btn-danger btn-xs" onclick="deleteType('${t.idDoc}')">X</button>
-                </div>
-            `;
-            ul.appendChild(li);
-        });
-    }
-
-    async function createType() {
-        const name = document.getElementById('new-type-name').value;
-        const color = document.getElementById('new-type-color').value;
-        if(!name) return;
-        await api('/tipologie', 'POST', { tipo: name, colore: color });
-        document.getElementById('new-type-name').value = '';
-        loadAdminTypes(); // Ricarica lista admin
-        loadTipologie(); // Ricarica legenda e dati mappa
-        loadPois(); // Ricolora i POI
-    }
-
-    async function deleteType(id) {
-        if(confirm("Eliminare questa tipologia? I POI collegati potrebbero perdere il colore.")) {
-            await api(`/tipologie/${id}`, 'DELETE');
-            loadAdminTypes();
-            loadTipologie();
+            loadUsers();
             loadPois();
         }
     }
-
-    async function promptEditType(id, oldName, oldColor) {
-        const newName = prompt("Nuovo nome tipologia:", oldName);
-        if(newName === null) return;
-        // Per il colore non usiamo prompt standard ma teniamo quello vecchio se non vogliamo fare UI complessa, 
-        // oppure potremmo chiedere anche quello. Per ora modifichiamo solo nome o chiediamo colore esadecimale.
-        const newColor = prompt("Nuovo colore (es. #ff0000 o red):", oldColor);
-        if(newColor === null) return;
-
-        await api(`/tipologie/${id}`, 'PUT', { tipo: newName, colore: newColor });
-        loadAdminTypes();
-        loadTipologie();
-        loadPois();
-    }
-
-    // --- UI HELPERS ---
-    function zoomTo(id) {
-        const m = markers[id];
-        if(m) { map.setView(m.getLatLng(), 17); m.openPopup(); if(window.innerWidth < 600) document.getElementById('poi-table-wrapper').style.display = 'none'; }
-    }
-    function toggleTable() {
-        const t = document.getElementById('poi-table-wrapper'); const b = document.getElementById('btn-show-table');
-        if(t.style.display === 'block') { t.style.display = 'none'; b.textContent = 'Mostra Elenco'; }
-        else { t.style.display = 'block'; b.textContent = 'Nascondi Elenco'; }
-    }
-    function toggleLegend() { const l = document.getElementById('legend'); l.style.display = (l.style.display === 'block') ? 'none' : 'block'; }
-    function toggleAdminPanel() { const p = document.getElementById('admin-panel'); p.style.display = (p.style.display === 'block') ? 'none' : 'block'; }
-
     </script>
 </body>
 </html>
