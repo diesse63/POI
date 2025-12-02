@@ -2,18 +2,18 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mappa POI Smart</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mappa POI Gestionale</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
 <style>
-    /* STILI GENERALI */
+    /* --- STILI GENERALI --- */
     body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; overflow: hidden; }
     
-    /* LOGIN */
+    /* --- LOGIN --- */
     #login-screen {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background: #f0f2f5; z-index: 9999; display: flex;
@@ -26,7 +26,7 @@
     .login-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     .login-box button { width: 100%; padding: 10px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; }
 
-    /* UI LAYOUT */
+    /* --- MAPPA E UI --- */
     #app-container { display: none; height: 100%; width: 100%; position: relative; }
     #map { height: 100%; width: 100%; background: #e5e5e5; z-index: 1; }
     
@@ -41,24 +41,35 @@
         cursor: pointer; font-size: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
 
-    /* Pannelli e Tabelle */
+    /* Pannelli Admin */
     #admin-panel {
         position: absolute; top: 60px; right: 10px; width: 320px;
         background: white; border-radius: 8px; padding: 15px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: none; z-index: 4000;
         max-height: 80vh; overflow-y: auto;
     }
+    #admin-panel h3 { margin-top: 0; color: #1976d2; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    #admin-panel h4 { margin: 15px 0 5px 0; font-size: 14px; color: #555; text-transform: uppercase; border-bottom: 1px solid #eee; }
+    .admin-list { list-style: none; padding: 0; margin: 0; }
+    .admin-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
+
+    /* --- TABELLA POI (RESPONSIVE) --- */
     #poi-table-wrapper {
-        position: absolute; bottom: 60px; left: 10px; width: 450px; /* Allargato un po' */
+        position: absolute; bottom: 60px; left: 10px; 
+        width: 450px; 
+        max-width: 95%; /* Non esce dallo schermo su mobile */
         background: white; border-radius: 8px; padding: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: none;
-        max-height: 300px; overflow-y: auto; pointer-events: auto; z-index: 3000;
+        max-height: 40vh; /* Altezza massima relativa allo schermo */
+        overflow-y: auto; 
+        overflow-x: auto; /* Scorrimento orizzontale se necessario */
+        pointer-events: auto; z-index: 3000;
     }
     #poi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     #poi-table th, #poi-table td { border: 1px solid #eee; padding: 5px; text-align: left; }
-    #poi-table th { background: #f9f9f9; }
+    #poi-table th { background: #f9f9f9; white-space: nowrap; }
 
-    /* Elementi UI */
+    /* Legenda */
     #legend {
         position: absolute; bottom: 20px; right: 10px;
         background: white; padding: 10px; border-radius: 5px;
@@ -66,77 +77,116 @@
     }
     .legend-item { display: flex; align-items: center; margin-bottom: 4px; font-size: 13px; }
     .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 8px; border: 1px solid #333; }
-    #bottom-left { position: absolute; bottom: 10px; left: 10px; pointer-events: auto; z-index: 3000; display: flex; gap: 5px; }
+    
+    /* Bottoni Basso */
+    #bottom-left { 
+        position: absolute; bottom: 10px; left: 10px; 
+        pointer-events: auto; z-index: 3000; display: flex; gap: 5px; flex-wrap: wrap; 
+    }
 
-    /* Bottoni */
-    .btn { padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white; margin: 2px; font-size: 12px; }
+    /* Stili Bottoni */
+    .btn { padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; color: white; margin: 2px; font-size: 13px; touch-action: manipulation; }
     .btn-primary { background: #1976d2; }
     .btn-danger { background: #dc3545; }
     .btn-secondary { background: #6c757d; }
     .btn-info { background: #17a2b8; }
     .btn-success { background: #28a745; }
-    .btn-whatsapp { background: #25D366; } /* Colore WhatsApp */
+    .btn-whatsapp { background: #25D366; }
     .btn-warning { background: #ffc107; color: #333; }
-    .btn-xs { padding: 2px 6px; font-size: 11px; }
+    .btn-xs { padding: 4px 8px; font-size: 12px; }
 
-    .poi-form input, .poi-form select, .poi-form textarea { width: 100%; margin-bottom: 8px; padding: 5px; box-sizing: border-box; }
+    /* Form */
+    .poi-form input, .poi-form select, .poi-form textarea { width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box; }
     .admin-form-row { display: flex; gap: 5px; margin-bottom: 10px; }
-    .admin-list { list-style: none; padding: 0; margin: 0; }
-    .admin-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
     input[type="color"] { width: 30px; height: 30px; border: none; padding: 0; cursor: pointer; }
     
-    .leaflet-control-geocoder-icon { width: 30px; height: 30px; border-radius: 4px; }
+    /* --- FIX ICONA RICERCA (Start) SU MOBILE --- */
+    .leaflet-control-geocoder-icon { 
+        width: 30px; height: 30px; border-radius: 4px; 
+        background-image: url('https://unpkg.com/leaflet-control-geocoder/images/geocoder.png');
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 16px 16px; 
+    }
     .leaflet-touch .leaflet-control-geocoder { margin-top: 10px; }
 
-    /* --- STILI DI STAMPA --- */
-    #print-title { display: none; } /* Nascosto a video */
+    /* --- STILI DI STAMPA AVANZATI --- */
+    #print-title { display: none; } 
 
     @media print {
-        /* Nascondi tutto quello che non serve */
-        #map, #top-bar, #bottom-left, #legend, #admin-panel, #login-screen, .leaflet-control-container, .btn-print-hide {
+        /* Nascondi elementi UI superflui */
+        #top-bar, #bottom-left, #legend, #admin-panel, #login-screen, .btn-print-hide, .leaflet-control-container, .leaflet-popup {
             display: none !important;
         }
 
-        /* Mostra e formatta la tabella */
+        /* CONFIGURAZIONE PAGINA */
+        @page {
+            margin: 1cm;
+            size: A4 portrait; /* Forza verticale */
+        }
+
+        body, html, #app-container {
+            height: auto !important;
+            width: 100% !important;
+            overflow: visible !important;
+            background: white !important;
+        }
+
+        /* 1. MAPPA IN STAMPA */
+        #map {
+            display: block !important;
+            position: relative !important;
+            height: 400px !important; /* Altezza fissa per la stampa */
+            width: 100% !important;
+            border: 2px solid #333;
+            margin-bottom: 20px;
+            z-index: 0 !important;
+        }
+
+        /* 2. TABELLA IN STAMPA */
         #poi-table-wrapper {
             display: block !important;
-            position: static !important;
+            position: static !important; /* Non più assoluta */
             box-shadow: none !important;
             width: 100% !important;
+            max-width: 100% !important;
             max-height: none !important;
             overflow: visible !important;
+            margin-top: 20px;
+            padding: 0 !important;
         }
 
         #poi-table {
             border: 1px solid #000;
             width: 100%;
+            font-size: 10px; /* Font più piccolo per far stare tutto */
         }
         
         #poi-table th, #poi-table td {
             border: 1px solid #000;
-            padding: 8px;
+            padding: 4px;
             color: #000;
+            word-wrap: break-word;
         }
 
-        /* Nascondi la colonna azioni in stampa */
+        /* Nascondi colonne inutili in stampa */
         #poi-table th:last-child, #poi-table td:last-child {
             display: none;
         }
 
-        /* Titolo di stampa */
         #print-title {
             display: block;
             text-align: center;
-            font-size: 24px;
-            margin-bottom: 20px;
+            font-size: 20px;
+            margin-bottom: 10px;
+            font-weight: bold;
         }
     }
 </style>
 </head>
 <body>
 
-    <!-- Titolo visibile solo in stampa -->
-    <h1 id="print-title">Elenco Punti di Interesse</h1>
+    <h1 id="print-title">Mappa Punti di Interesse</h1>
 
     <!-- LOGIN -->
     <div id="login-screen">
@@ -179,9 +229,8 @@
         </div>
 
         <div id="bottom-left">
-            <button id="btn-show-table" class="btn btn-secondary" onclick="toggleTable()">Mostra Elenco POI</button>
-            <!-- NUOVO BOTTONE STAMPA -->
-            <button class="btn btn-info" onclick="printPois()">🖨️ Stampa</button>
+            <button id="btn-show-table" class="btn btn-secondary btn-print-hide" onclick="toggleTable()">Mostra Elenco POI</button>
+            <button class="btn btn-info btn-print-hide" onclick="printPois()">🖨️ Stampa</button>
         </div>
 
         <div id="poi-table-wrapper">
@@ -196,7 +245,7 @@
             <div id="legend-content"></div>
         </div>
         <div style="position:absolute; bottom:10px; right:10px; pointer-events:auto; z-index:3000;">
-            <button class="btn btn-secondary" onclick="toggleLegend()">Legenda</button>
+            <button class="btn btn-secondary btn-print-hide" onclick="toggleLegend()">Legenda</button>
         </div>
     </div>
 
@@ -285,7 +334,6 @@
         
         locateUser();
 
-        // Ricerca
         L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft', placeholder: "Cerca..." })
         .on('markgeocode', function(e) {
             const r = e.geocode;
@@ -293,7 +341,6 @@
             openPoiForm(r.center.lat, r.center.lng, (r.name||'').split(',')[0].trim());
         }).addTo(map);
 
-        // --- DOPPIO CLICK INTELLIGENTE ---
         map.on('dblclick', async (e) => {
             openPoiForm(e.latlng.lat, e.latlng.lng, "Recupero indirizzo...");
             const placeName = await getPlaceDetails(e.latlng.lat, e.latlng.lng);
@@ -399,34 +446,22 @@
             </div>`;
     }
 
-    // --- NUOVE FUNZIONI STAMPA E WHATSAPP ---
-
-    // 1. Funzione Stampa
+    // --- FUNZIONI STAMPA E WHATSAPP ---
     window.printPois = function() {
-        // Usa semplicemente la funzione nativa del browser.
-        // Il CSS @media print (definito sopra) nasconderà automaticamente mappa e menu,
-        // lasciando solo la tabella ordinata.
         window.print();
     };
 
-    // 2. Funzione Condividi su WhatsApp
     window.shareWhatsapp = function(id) {
         const p = poiData.find(x => x.id === id);
         if(!p) return;
-
         const mapsLink = `https://www.google.com/maps?q=${p.lat},${p.lng}`;
-        
-        // Creiamo il testo del messaggio (usa %0A per andare a capo)
         let text = `📍 *${p.name}*%0A`;
         text += `🏷️ Tipo: ${tipologie.find(t=>t.IDTipo==p.type)?.Tipo || '-' }%0A`;
         if(p.note) text += `📝 Note: ${p.note}%0A`;
         if(p.link) text += `🔗 Link: ${p.link}%0A`;
         text += `🗺️ Posizione: ${mapsLink}`;
-
-        // Apre WhatsApp Web o l'App
         window.open(`https://wa.me/?text=${text}`, '_blank');
     };
-
 
     // --- GESTIONE POI ---
     window.openPoiForm = function(lat, lng, name = '') {
