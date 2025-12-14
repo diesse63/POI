@@ -99,13 +99,11 @@
     .admin-form-row { display: flex; gap: 5px; margin-bottom: 10px; }
     input[type="color"] { width: 30px; height: 30px; border: none; padding: 0; cursor: pointer; }
     
-    /* --- FIX: ICONA RICERCA (Start) --- 
-       Rimuoviamo l'immagine di background che fallisce e usiamo un'emoji standard 
-    */
+    /* --- FIX: ICONA RICERCA --- */
     .leaflet-control-geocoder-icon { 
         width: 30px !important; height: 30px !important; 
         border-radius: 4px; 
-        background-image: none !important; /* Rimuove immagine corrotta */
+        background-image: none !important;
         display: flex !important;
         justify-content: center;
         align-items: center;
@@ -115,92 +113,25 @@
         box-shadow: 0 1px 5px rgba(0,0,0,0.65);
         background-color: white;
     }
-    /* Inseriamo la lente d'ingrandimento come testo */
-    .leaflet-control-geocoder-icon::after {
-        content: '🔍';
-    }
+    .leaflet-control-geocoder-icon::after { content: '🔍'; }
     .leaflet-touch .leaflet-control-geocoder { margin-top: 10px; }
 
-    /* --- STILI DI STAMPA (DUE PAGINE) --- */
+    /* --- STILI DI STAMPA --- */
     #print-title-map, #print-title-list { display: none; } 
 
     @media print {
-        /* Nascondi tutto ciò che non serve */
-        #top-bar, #bottom-left, #legend, #admin-panel, #login-screen, .btn-print-hide, .leaflet-control-container, .leaflet-popup {
-            display: none !important;
-        }
-
-        /* CONFIGURAZIONE GENERALE PAGINA */
-        @page {
-            margin: 1cm;
-            size: A4 portrait;
-        }
-
-        body, html, #app-container {
-            height: auto !important;
-            width: 100% !important;
-            overflow: visible !important;
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        /* --- PAGINA 1: LA MAPPA --- */
-        #print-title-map {
-            display: block !important;
-            text-align: center; font-size: 24px; margin-bottom: 20px;
-        }
-
-        #map {
-            display: block !important;
-            position: relative !important;
-            /* Altezza calcolata per riempire bene la pagina A4 verticale meno il titolo */
-            height: 24cm !important; 
-            width: 100% !important;
-            border: 2px solid #333;
-            z-index: 0 !important;
-            /* FORZA IL SALTO PAGINA DOPO LA MAPPA */
-            page-break-after: always;
-            break-after: page;
-        }
-
-        /* --- PAGINA 2: LA TABELLA --- */
-        #print-title-list {
-            display: block !important;
-            text-align: center; font-size: 24px; margin-bottom: 20px;
-            /* FORZA IL SALTO PAGINA PRIMA DEL TITOLO DELLA TABELLA */
-            page-break-before: always;
-            break-before: page;
-        }
-
-        #poi-table-wrapper {
-            display: block !important;
-            position: static !important;
-            box-shadow: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            max-height: none !important;
-            overflow: visible !important;
-            padding: 0 !important;
-        }
-
-        #poi-table {
-            border: 1px solid #000;
-            width: 100%;
-            font-size: 12px;
-            border-collapse: collapse;
-        }
+        #top-bar, #bottom-left, #legend, #admin-panel, #login-screen, .btn-print-hide, .leaflet-control-container, .leaflet-popup { display: none !important; }
+        @page { margin: 1cm; size: A4 portrait; }
+        body, html, #app-container { height: auto !important; width: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }
         
-        #poi-table th, #poi-table td {
-            border: 1px solid #000;
-            padding: 8px;
-            color: #000;
-        }
-
-        /* Nascondi colonne azioni in stampa */
-        #poi-table th:last-child, #poi-table td:last-child {
-            display: none;
-        }
+        #print-title-map { display: block !important; text-align: center; font-size: 24px; margin-bottom: 20px; }
+        #map { display: block !important; position: relative !important; height: 24cm !important; width: 100% !important; border: 2px solid #333; z-index: 0 !important; page-break-after: always; break-after: page; }
+        
+        #print-title-list { display: block !important; text-align: center; font-size: 24px; margin-bottom: 20px; page-break-before: always; break-before: page; }
+        #poi-table-wrapper { display: block !important; position: static !important; box-shadow: none !important; width: 100% !important; max-width: 100% !important; max-height: none !important; overflow: visible !important; padding: 0 !important; }
+        #poi-table { border: 1px solid #000; width: 100%; font-size: 12px; border-collapse: collapse; }
+        #poi-table th, #poi-table td { border: 1px solid #000; padding: 8px; color: #000; }
+        #poi-table th:last-child, #poi-table td:last-child { display: none; }
     }
 </style>
 </head>
@@ -230,7 +161,6 @@
             <span id="welcome-msg" style="background:white; padding:10px; border-radius:4px; display:flex; align-items:center;"></span>
             <div id="admin-btn" class="icon-btn" style="display:none;" onclick="toggleAdminPanel()">⚙️</div>
             <div class="icon-btn" onclick="location.reload()">↻</div>
-            <!-- Icona Esci Cambiata in PORTA per compatibilità -->
             <div class="icon-btn" onclick="doLogout()">🚪</div>
         </div>
 
@@ -362,14 +292,13 @@
         .on('markgeocode', function(e) {
             const r = e.geocode;
             map.fitBounds(r.bbox);
-            openPoiForm(r.center.lat, r.center.lng, (r.name||'').split(',')[0].trim());
+            // Al posto di openPoiForm, usiamo il popup di scelta
+            openChoicePopup(r.center.lat, r.center.lng, (r.name||'').split(',')[0].trim());
         }).addTo(map);
 
         map.on('dblclick', async (e) => {
-            openPoiForm(e.latlng.lat, e.latlng.lng, "Recupero indirizzo...");
-            const placeName = await getPlaceDetails(e.latlng.lat, e.latlng.lng);
-            const nameInput = document.getElementById('new-name');
-            if(nameInput) nameInput.value = placeName;
+            // Al posto di openPoiForm, usiamo il popup di scelta
+            openChoicePopup(e.latlng.lat, e.latlng.lng);
         });
         
         await loadTipologie();
@@ -470,9 +399,7 @@
     }
 
     // --- FUNZIONI STAMPA E WHATSAPP ---
-    window.printPois = function() {
-        window.print();
-    };
+    window.printPois = function() { window.print(); };
 
     window.shareWhatsapp = function(id) {
         const p = poiData.find(x => x.id === id);
@@ -486,7 +413,44 @@
         window.open(`https://wa.me/?text=${text}`, '_blank');
     };
 
-    // --- GESTIONE POI ---
+    // --- GESTIONE INTERMEDIAZIONE (Nuova Funzionalità) ---
+    window.openChoicePopup = async function(lat, lng, preloadedName = null) {
+        // Popup temporaneo di caricamento
+        const loadingPopup = L.popup().setLatLng([lat, lng])
+            .setContent('<div style="text-align:center">⏳ Recupero info...</div>').openOn(map);
+
+        let placeName = preloadedName;
+        if(!placeName) placeName = await getPlaceDetails(lat, lng);
+
+        // Sanificazione stringhe per JS
+        const safeName = placeName.replace(/'/g, "\\'");
+        const safeDisplay = placeName.replace(/"/g, "&quot;");
+
+        const content = `
+            <div style="text-align:center; min-width:220px;">
+                <h4 style="margin:0 0 10px 0; border-bottom:1px solid #eee; padding-bottom:5px; color:#1976d2;">${safeDisplay}</h4>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <button class="btn btn-info" onclick="directWikiSearch('${safeName}', ${lat}, ${lng})">
+                        📖 Cerca su Wikipedia
+                    </button>
+                    <button class="btn btn-primary" onclick="openPoiForm(${lat}, ${lng}, '${safeName}')">
+                        💾 Salva come POI
+                    </button>
+                </div>
+            </div>`;
+        loadingPopup.setContent(content);
+    };
+
+    window.directWikiSearch = function(name, lat, lng) {
+        if (!name || name.includes("Posizione") || name.includes("sconosciuta")) {
+             window.open(`https://it.wikipedia.org/wiki/Special:Nearby?lat=${lat}&lon=${lng}`, '_blank');
+        } else {
+             window.open(`https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`, '_blank');
+        }
+        map.closePopup();
+    };
+
+    // --- GESTIONE FORM POI (Invariata) ---
     window.openPoiForm = function(lat, lng, name = '') {
         const opts = tipologie.map(t => `<option value="${t.IDTipo}">${t.Tipo}</option>`).join('');
         const formHtml = `
@@ -499,7 +463,11 @@
                     <button class="btn btn-primary" onclick="submitNewPoi(${lat}, ${lng})">Salva</button>
                 </div>
             </div>`;
-        L.popup().setLatLng([lat,lng]).setContent(formHtml).openOn(map);
+        // Chiude il popup di scelta e apre quello del form
+        map.closePopup();
+        setTimeout(() => {
+            L.popup().setLatLng([lat,lng]).setContent(formHtml).openOn(map);
+        }, 100);
     };
 
     window.submitNewPoi = async function(lat, lng) {
