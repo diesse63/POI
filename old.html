@@ -29,6 +29,7 @@
         /* ADMIN PANEL */
         #admin-panel { position: absolute; top: 70px; right: 15px; width: 380px; max-width: 90vw; background: white; border-radius: 10px; padding: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: none; z-index: 5000; max-height: 80vh; overflow-y: auto; }
         .admin-section { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+        .admin-section h4 { margin: 0 0 10px 0; color: #1976d2; font-size: 13px; text-transform: uppercase; }
         .admin-list-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
         .admin-list-text { flex: 1; margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -45,7 +46,7 @@
         .btn-danger { background: #d32f2f; } 
         .btn-success { background: #388e3c; } 
         .btn-info { background: #0288d1; } 
-        .btn-dark { background: #343a40; color: white; } /* IL NUOVO COLORE SCURO */
+        .btn-dark { background: #343a40; color: white; } /* MODIFICA SCURO */
         .btn-xs { padding: 5px 8px; font-size: 11px; margin-right: 2px; }
 
         #poi-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -53,6 +54,9 @@
 
         .type-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #999; flex-shrink: 0; }
         
+        /* Dropdown colori admin */
+        #new-type-color { padding: 5px; border-radius: 4px; border: 1px solid #ddd; cursor: pointer; }
+
         @media print {
             .btn-print-hide, .leaflet-control-container, #top-bar, #bottom-left, #bottom-right, #admin-panel { display: none !important; }
             #poi-table-wrapper { display: block !important; position: static !important; width: 100% !important; max-height: none !important; }
@@ -65,7 +69,7 @@
     <div id="login-screen">
         <div class="login-box">
             <h2 style="color:#1976d2;">Mappa POI</h2>
-            <form id="login-form" onsubmit="window.doLogin(); return false;">
+            <form id="login-form" autocomplete="on" onsubmit="window.doLogin(); return false;">
                 <input type="text" id="login-user" name="username" autocomplete="username" placeholder="Email o Nome Ospite" required />
                 <input type="password" id="login-pass" name="password" autocomplete="current-password" placeholder="Password (vuota per Ospite)" />
                 <button type="submit">Entra</button>
@@ -88,17 +92,28 @@
         <div id="admin-panel">
             <div class="admin-section">
                 <h4>Tipologie</h4>
-                <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-type-name" autocomplete="off" placeholder="Nome...">
-                    <input type="color" id="new-type-color" value="#1976d2" style="width:40px;">
-                    <button class="btn btn-primary btn-xs" onclick="window.addType()">+</button>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+                    <input type="text" id="new-type-name" name="new-type-name" autocomplete="off" placeholder="Nome categoria...">
+                    <select id="new-type-color" name="new-type-color">
+                        <option value="#1976d2" style="background-color:#1976d2; color:white;">Blu</option>
+                        <option value="#d32f2f" style="background-color:#d32f2f; color:white;">Rosso</option>
+                        <option value="#388e3c" style="background-color:#388e3c; color:white;">Verde</option>
+                        <option value="#ffa000" style="background-color:#ffa000; color:white;">Arancione</option>
+                        <option value="#7b1fa2" style="background-color:#7b1fa2; color:white;">Viola</option>
+                        <option value="#fbc02d" style="background-color:#fbc02d; color:black;">Giallo</option>
+                        <option value="#c2185b" style="background-color:#c2185b; color:white;">Rosa</option>
+                        <option value="#5d4037" style="background-color:#5d4037; color:white;">Marrone</option>
+                        <option value="#212121" style="background-color:#212121; color:white;">Nero</option>
+                        <option value="#757575" style="background-color:#757575; color:white;">Grigio</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="window.addType()">Aggiungi Categoria</button>
                 </div>
                 <div id="admin-type-list"></div>
             </div>
             <div class="admin-section" style="border:none;">
                 <h4>Ospiti Autorizzati</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-access-user" autocomplete="off" placeholder="Nome ospite...">
+                    <input type="text" id="new-access-user" name="new-access-user" autocomplete="off" placeholder="Nome ospite...">
                     <button class="btn btn-primary btn-xs" onclick="window.addAccessUser()">+</button>
                 </div>
                 <div id="admin-access-list"></div>
@@ -186,8 +201,8 @@
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
                 userLocationMarker = L.circleMarker(e.latlng, {
                     radius: 9, color: 'white', fillColor: '#1976d2', fillOpacity: 1, weight: 2
-                }).addTo(map).bindPopup("Tua posizione attuale");
-                map.setView(e.latlng, 15);
+                }).addTo(map).bindPopup("La tua posizione");
+                map.setView(e.latlng, 15); // Zoom raggio ~1km
             });
 
             map.locate({ setView: true, maxZoom: 15 });
@@ -221,13 +236,13 @@
 
         function openActionPopup(lat, lng, name) {
             const safeName = name.replace(/'/g, "\\'");
-            const wikiSearchUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
+            const wikiUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
             const html = `
                 <div style="text-align:center">
                     <strong>${name}</strong><br><br>
                     <div style="display:flex; flex-direction:column; gap:6px;">
                         <button class="btn btn-primary" onclick="window.showPoiForm(${lat}, ${lng}, '${safeName}')">💾 Salva Punto</button>
-                        <button class="btn btn-info" onclick="window.open('${wikiSearchUrl}', '_blank')">📖 Wikipedia</button>
+                        <button class="btn btn-info" onclick="window.open('${wikiUrl}', '_blank')">📖 Wikipedia</button>
                     </div>
                 </div>`;
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
@@ -241,11 +256,11 @@
             const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == type ? 'selected' : ''}>${t.tipo}</option>`).join('');
             const html = `<div style="min-width:180px;">
                 <label style="font-size:11px;">Nome</label>
-                <input id="f-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;">
+                <input id="f-name" name="poi-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;">
                 <label style="font-size:11px;">Categoria</label>
-                <select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
+                <select id="f-type" name="poi-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
                 <label style="font-size:11px;">Note</label>
-                <textarea id="f-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea>
+                <textarea id="f-note" name="poi-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea>
                 <button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button>
             </div>`;
             map.closePopup();
@@ -264,6 +279,7 @@
 
         window.deletePoi = async function(id) { if (confirm("Eliminare definitivamente?")) { await supabaseClient.from('pois').delete().eq('id', id); loadPois(); } };
 
+        // --- ADMIN ---
         async function loadTipologie() {
             const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
@@ -324,19 +340,28 @@
             });
         }
 
-        window.deleteType = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('tipologie').delete().eq('id', id); loadTipologie(); loadPois(); } };
+        window.deleteType = async function(id) { if (confirm("Eliminare categoria?")) { await supabaseClient.from('tipologie').delete().eq('id', id); loadTipologie(); loadPois(); } };
         window.editType = async function(id, n, c) {
-            const nn = prompt("Nome:", n), nc = prompt("Colore:", c);
-            if (nn) { await supabaseClient.from('tipologie').update({ tipo: nn, colore: nc || c }).eq('id', id); loadTipologie(); loadPois(); }
+            const nn = prompt("Nuovo nome categoria:", n);
+            if (nn) { await supabaseClient.from('tipologie').update({ tipo: nn }).eq('id', id); loadTipologie(); loadPois(); }
         };
-        window.addType = async function() { await supabaseClient.from('tipologie').insert([{ tipo: document.getElementById('new-type-name').value, colore: document.getElementById('new-type-color').value }]); loadTipologie(); };
+        window.addType = async function() { 
+            const tipo = document.getElementById('new-type-name').value;
+            const colore = document.getElementById('new-type-color').value;
+            if (tipo) {
+                await supabaseClient.from('tipologie').insert([{ tipo: tipo, colore: colore }]); 
+                document.getElementById('new-type-name').value = '';
+                loadTipologie(); 
+            }
+        };
         window.addAccessUser = async function() { await supabaseClient.from('accessi').insert([{ username: document.getElementById('new-access-user').value }]); loadAccessUsers(); };
         window.deleteAccessUser = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('accessi').delete().eq('id', id); loadAccessUsers(); } };
         window.editAccessUser = async function(id, u) {
-            const nu = prompt("Nome:", u);
+            const nu = prompt("Nuovo nome ospite:", u);
             if (nu) { await supabaseClient.from('accessi').update({ username: nu }).eq('id', id); loadAccessUsers(); }
         };
 
+        // --- UTILS ---
         window.zoomTo = (id, edit = false) => { 
             const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); if (edit) { const p = poiData.find(x => x.id === id); window.showPoiForm(p.lat, p.lng, '', p.id); } else m.openPopup(); } 
         };
