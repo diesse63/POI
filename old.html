@@ -35,7 +35,6 @@
         }
         .admin-section { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
         .admin-section h4 { margin: 0 0 10px 0; color: #1976d2; font-size: 13px; text-transform: uppercase; }
-        
         .admin-list-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
         .admin-list-text { flex: 1; margin-left: 12px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -52,10 +51,17 @@
         .btn-danger { background: #d32f2f; }
         .btn-success { background: #388e3c; }
         .btn-info { background: #0288d1; }
-        .btn-warning { background: #ffa000; color: white; }
         .btn-xs { padding: 4px 8px; font-size: 11px; margin-right: 4px; }
 
         .type-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #999; flex-shrink: 0; }
+        
+        /* Stile per il Marker della Posizione Utente */
+        .user-location-marker {
+            background-color: #1976d2;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
@@ -78,7 +84,7 @@
         <div id="top-bar">
             <div id="admin-btn-ui" class="icon-btn" onclick="toggleAdminPanel()" style="display:none;">⚙️</div>
             <div id="user-display" style="background:white; padding:0 15px; border-radius:8px; display:flex; align-items:center; font-size:12px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);"></div>
-            <button class="icon-btn" onclick="location.reload()">↻</button>
+            <button class="icon-btn" onclick="location.reload()" title="Ricarica e centra posizione">↻</button>
             <button class="icon-btn" onclick="doLogout()">🚪</button>
         </div>
 
@@ -131,6 +137,7 @@
         let tipologie = [];
         let poiData = [];
         let map, poiLayer, markers = {};
+        let userMarker = null;
 
         // --- AUTH ---
         window.doLogin = async function() {
@@ -154,23 +161,11 @@
             } catch (err) { msg.textContent = err.message; }
         };
 
-        // FUNZIONE LOGOUT CORRETTA E PROFONDA
         window.doLogout = async function() {
-            try {
-                // 1. Disconnessione da Supabase
-                await client.auth.signOut();
-                
-                // 2. Pulizia totale storage (rimuove token Supabase e guest name)
-                localStorage.clear(); 
-                sessionStorage.clear();
-
-                // 3. Reindirizzamento forzato all'URL base per resettare lo stato dello script
-                window.location.replace(window.location.origin + window.location.pathname);
-            } catch (e) {
-                // In caso di errore estremo, puliamo tutto e ricarichiamo comunque
-                localStorage.clear();
-                window.location.reload();
-            }
+            await client.auth.signOut();
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace(window.location.origin + window.location.pathname);
         };
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -194,14 +189,46 @@
             }
         });
 
+        // --- MAPPA E POSIZIONE ---
         async function initMap() {
+            // Inizializzazione mappa (vista di default sull'Italia)
             map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 6);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             poiLayer = L.layerGroup().addTo(map);
 
-            map.locate({setView: true, maxZoom: 14});
+            // GESTIONE GEOLOCALIZZAZIONE (Centratura automatica)
+            map.on('locationfound', function(e) {
+                const radius = e.accuracy / 2;
+                if (userMarker) map.removeLayer(userMarker);
+                
+                userMarker = L.circleMarker(e.latlng, {
+                    radius: 8,
+                    fillColor: "#1976d2",
+                    color: "white",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 1
+                }).addTo(map).bindPopup("Sei qui (accuratezza: " + Math.round(radius) + "m)");
+
+                // Centra la mappa sulla posizione trovata
+                map.setView(e.latlng, 15);
+            });
+
+            map.on('locationerror', function(e) {
+                console.warn("Geolocalizzazione fallita o negata: " + e.message);
+                // In caso di errore, non centra la mappa ma carica i POI sulla vista di default
+            });
+
+            // Avvia la localizzazione
+            map.locate({ setView: true, maxZoom: 15 });
+
+            // Geocoder
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
-                .on('markgeocode', e => { map.fitBounds(e.geocode.bbox); openActionPopup(e.geocode.center.lat, e.geocode.center.lng, e.geocode.name.split(',')[0]); }).addTo(map);
+                .on('markgeocode', e => { 
+                    map.fitBounds(e.geocode.bbox); 
+                    openActionPopup(e.geocode.center.lat, e.geocode.center.lng, e.geocode.name.split(',')[0]); 
+                }).addTo(map);
+
             map.on('dblclick', e => openActionPopup(e.latlng.lat, e.latlng.lng));
 
             await loadTipologie();
