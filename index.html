@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mappa Gestionale POI</title>
+    <title>Mappa Gestionale Multutente</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
@@ -13,28 +13,17 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f2f5; }
         
         /* LOGIN */
-        #login-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #f0f2f5; z-index: 9999; display: flex;
-            justify-content: center; align-items: center;
-        }
-        .login-box {
-            background: white; padding: 30px; border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1); width: 320px; text-align: center;
-        }
+        #login-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #f0f2f5; z-index: 9999; display: flex; justify-content: center; align-items: center; }
+        .login-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); width: 320px; text-align: center; }
         .login-box input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         .login-box button { width: 100%; padding: 12px; background: #1976d2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 
         #app-container { display: none; height: 100%; width: 100%; position: relative; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* TOP BAR */
+        /* UI TOP */
         #top-bar { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 4000; }
-        .icon-btn {
-            width: 44px; height: 44px; background: white; border-radius: 8px;
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: none;
-        }
+        .icon-btn { width: 44px; height: 44px; background: white; border-radius: 8px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: none; }
 
         /* ADMIN PANEL */
         #admin-panel {
@@ -45,24 +34,15 @@
         }
         .admin-section { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
         .admin-section h4 { margin: 0 0 10px 0; color: #1976d2; font-size: 13px; text-transform: uppercase; }
-        .admin-list-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
+        .admin-list-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f9f9f9; font-size: 12px; }
         
         /* BOTTONI POSIZIONAMENTO */
         #bottom-left { position: absolute; bottom: 20px; left: 15px; z-index: 3000; }
         #bottom-right { position: absolute; bottom: 20px; right: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
 
-        /* UI POPUPS */
-        #poi-table-wrapper {
-            position: absolute; bottom: 120px; right: 15px; width: 350px; max-width: 90%;
-            background: white; border-radius: 10px; padding: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none;
-            max-height: 40vh; overflow-y: auto; z-index: 3500;
-        }
-        #legend {
-            position: absolute; bottom: 70px; left: 15px;
-            background: white; padding: 12px; border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500;
-        }
+        /* UI POPUPS (posizionati sopra i bottoni) */
+        #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 350px; max-width: 90%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 40vh; overflow-y: auto; z-index: 3500; }
+        #legend { position: absolute; bottom: 75px; left: 15px; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500; }
 
         .btn { padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: 500; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .btn-primary { background: #1976d2; }
@@ -76,25 +56,22 @@
 </head>
 <body>
 
-    <!-- LOGIN -->
     <div id="login-screen">
         <div class="login-box">
-            <h2 style="color:#1976d2; margin-bottom:5px;">Mappa POI</h2>
-            <p style="font-size:12px; color:#666; margin-bottom:20px;">Inserisci email/pass oppure il Nome Utente autorizzato</p>
-            <input type="text" id="login-email" placeholder="Email o Nome Utente" />
-            <input type="password" id="login-pass" placeholder="Password (vuota per accesso rapido)" />
+            <h2 style="color:#1976d2;">Mappa POI</h2>
+            <input type="text" id="login-user" placeholder="Email o Nome Utente" />
+            <input type="password" id="login-pass" placeholder="Password (se prevista)" />
             <button onclick="doLogin()">Entra</button>
             <p id="login-msg" style="color:red; font-size:12px; margin-top:10px;"></p>
         </div>
     </div>
 
-    <!-- APP -->
     <div id="app-container">
         <div id="map"></div>
 
         <div id="top-bar">
-            <div id="admin-btn" class="icon-btn" onclick="toggleAdminPanel()">⚙️</div>
-            <div style="background:white; padding:0 15px; border-radius:8px; display:flex; align-items:center; font-size:12px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);" id="user-display"></div>
+            <div id="admin-btn-ui" class="icon-btn" onclick="toggleAdminPanel()" style="display:none;">⚙️</div>
+            <div id="user-display" style="background:white; padding:0 15px; border-radius:8px; display:flex; align-items:center; font-size:12px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);"></div>
             <button class="icon-btn" onclick="location.reload()">↻</button>
             <button class="icon-btn" onclick="doLogout()">🚪</button>
         </div>
@@ -102,33 +79,32 @@
         <!-- Pannello Admin -->
         <div id="admin-panel">
             <div class="admin-section">
-                <h4>Gestione Tipologie (Nome e Colore)</h4>
+                <h4>Tipologie (Nome e Colore)</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-type-name" placeholder="Nome tipo..." style="flex:1; padding:5px;">
-                    <input type="color" id="new-type-color" value="#1976d2" style="width:40px; border:none; padding:0;">
+                    <input type="text" id="new-type-name" placeholder="Nome..." style="flex:1;">
+                    <input type="color" id="new-type-color" value="#1976d2" style="width:40px;">
                     <button class="btn btn-primary btn-xs" onclick="addType()">Aggiungi</button>
                 </div>
                 <div id="admin-type-list"></div>
             </div>
 
             <div class="admin-section">
-                <h4>Utenti Autorizzati (Senza Password)</h4>
+                <h4>Utenti Senza Password</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-access-user" placeholder="Nome utente..." style="flex:1; padding:5px;">
+                    <input type="text" id="new-access-user" placeholder="Nome..." style="flex:1;">
                     <button class="btn btn-primary btn-xs" onclick="addAccessUser()">Autorizza</button>
                 </div>
                 <div id="admin-access-list"></div>
             </div>
 
             <div class="admin-section" style="border:none;">
-                <h4>Gestione Rapida Punti</h4>
-                <div id="admin-poi-list" style="max-height:150px; overflow-y:auto; border:1px solid #eee; padding:5px; border-radius:4px;"></div>
+                <h4>Gestione Tutti i Punti (Admin)</h4>
+                <div id="admin-poi-list" style="max-height:200px; overflow-y:auto; font-size:11px;"></div>
             </div>
         </div>
 
-        <!-- Popups Elenco e Legenda -->
         <div id="poi-table-wrapper">
-            <h4 style="margin:0 0 10px 0;">Elenco Punti</h4>
+            <h4 style="margin:0 0 10px 0;">I tuoi Punti</h4>
             <table id="poi-table" style="width:100%; border-collapse:collapse;"><tbody id="poi-table-body"></tbody></table>
         </div>
 
@@ -137,11 +113,7 @@
             <div id="legend-content" style="margin-top:8px;"></div>
         </div>
 
-        <!-- Bottoni Inferiori -->
-        <div id="bottom-left">
-            <button class="btn btn-success" onclick="toggleLegend()">📍 Legenda</button>
-        </div>
-
+        <div id="bottom-left"><button class="btn btn-success" onclick="toggleLegend()">📍 Legenda</button></div>
         <div id="bottom-right">
             <button class="btn btn-primary" onclick="toggleTable()">📋 Elenco Punti</button>
             <button class="btn btn-info" onclick="window.print()">🖨️ Stampa</button>
@@ -156,52 +128,53 @@
         const SUPABASE_KEY = 'sb_publishable_okceYdUFp92xfCxMId4JAw_JdybLj0i';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        // CONFIGURAZIONE ADMIN
+        const ADMIN_USER = 'diesse63'; // Sostituisci con il tuo username o email admin
+
         let currentUser = null;
+        let isAdmin = false;
         let tipologie = [];
         let poiData = [];
-        let map, poiLayer, userMarker;
-        let markers = {};
+        let map, poiLayer, markers = {};
 
         // --- AUTH ---
         async function doLogin() {
-            const userInp = document.getElementById('login-email').value;
+            const userInp = document.getElementById('login-user').value;
             const passInp = document.getElementById('login-pass').value;
-            const msg = document.getElementById('login-msg');
-
-            // Caso A: Accesso con Password (Standard)
+            
             if (passInp.length > 0) {
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email: userInp, password: passInp });
-                if (error) msg.textContent = "Errore password: " + error.message;
-                else location.reload();
-                return;
-            }
-
-            // Caso B: Accesso senza Password (Controllo tabella 'accessi')
-            const { data, error } = await supabaseClient.from('accessi').select('*').eq('username', userInp).single();
-            if (data) {
-                // Salviamo in locale il nome utente per simulare la sessione
-                localStorage.setItem('guest_user', userInp);
-                location.reload();
+                if (error) alert(error.message); else location.reload();
             } else {
-                msg.textContent = "Nome utente non autorizzato o inserire password.";
+                const { data } = await supabaseClient.from('accessi').select('*').eq('username', userInp).single();
+                if (data) {
+                    localStorage.setItem('poi_user', userInp);
+                    location.reload();
+                } else {
+                    alert("Utente non autorizzato.");
+                }
             }
         }
 
-        async function doLogout() {
-            await supabaseClient.auth.signOut();
-            localStorage.removeItem('guest_user');
+        function doLogout() {
+            supabaseClient.auth.signOut();
+            localStorage.removeItem('poi_user');
             location.reload();
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
-            const guest = localStorage.getItem('guest_user');
-
+            const guest = localStorage.getItem('poi_user');
+            
             if (session || guest) {
-                currentUser = session ? session.user : { email: guest, id: 'guest' };
+                currentUser = session ? { id: session.user.id, name: session.user.email } : { id: guest, name: guest };
+                isAdmin = (currentUser.name === ADMIN_USER || currentUser.name.includes('admin'));
+                
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
-                document.getElementById('user-display').textContent = guest || currentUser.email;
+                document.getElementById('user-display').textContent = currentUser.name;
+                if (isAdmin) document.getElementById('admin-btn-ui').style.display = 'flex';
+                
                 initMap();
             }
         });
@@ -212,11 +185,7 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             poiLayer = L.layerGroup().addTo(map);
 
-            // Attivazione GPS
             map.locate({setView: true, maxZoom: 14});
-            map.on('locationfound', e => {
-                L.circleMarker(e.latlng, {radius: 8, color: '#1976d2'}).addTo(map).bindPopup("Sei qui");
-            });
 
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
                 .on('markgeocode', e => {
@@ -227,92 +196,69 @@
             map.on('dblclick', e => openActionPopup(e.latlng.lat, e.latlng.lng));
 
             await loadTipologie();
-            await loadAccessUsers();
+            if (isAdmin) await loadAccessUsers();
             await loadPois();
         }
 
-        // --- CARICAMENTO DATI ---
+        // --- DATI ---
         async function loadTipologie() {
             const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
-            
-            // UI Legenda
             document.getElementById('legend-content').innerHTML = tipologie.map(t => 
                 `<div class="legend-item"><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</div>`
             ).join('');
 
-            // UI Admin Tipologie (Nome + Colore)
-            document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `
-                <div class="admin-list-item">
-                    <span><span class="type-dot" style="background:${t.colore}"></span> <b>${t.tipo}</b></span>
-                    <button class="btn btn-danger btn-xs" onclick="deleteType(${t.id})">Rimuovi</button>
-                </div>
-            `).join('');
+            if (isAdmin) {
+                document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `
+                    <div class="admin-list-item">
+                        <span><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</span>
+                        <button class="btn btn-danger btn-xs" onclick="deleteType(${t.id})">X</button>
+                    </div>`).join('');
+            }
         }
 
         async function loadAccessUsers() {
             const { data } = await supabaseClient.from('accessi').select('*').order('username');
             document.getElementById('admin-access-list').innerHTML = (data || []).map(u => `
-                <div class="admin-list-item">
-                    <span>👤 ${u.username}</span>
-                    <button class="btn btn-danger btn-xs" onclick="deleteAccessUser(${u.id})">Rimuovi</button>
-                </div>
+                <div class="admin-list-item"><span>👤 ${u.username}</span><button class="btn btn-danger btn-xs" onclick="deleteAccessUser(${u.id})">X</button></div>
             `).join('');
         }
 
         async function loadPois() {
-            const { data } = await supabaseClient.from('pois').select('*').order('name');
+            // LOGICA FILTRO: Se admin vede tutto, altrimenti solo i propri
+            let query = supabaseClient.from('pois').select('*');
+            if (!isAdmin) {
+                query = query.eq('created_by', currentUser.name);
+            }
+            
+            const { data } = await query.order('name');
             poiData = data || [];
             poiLayer.clearLayers();
-            markers = {};
             const tbody = document.getElementById('poi-table-body');
             const admPoi = document.getElementById('admin-poi-list');
-            tbody.innerHTML = ''; admPoi.innerHTML = '';
+            tbody.innerHTML = ''; if(isAdmin) admPoi.innerHTML = '';
 
             poiData.forEach(p => {
-                const tipoObj = tipologie.find(t => t.id == p.type);
-                const color = tipoObj ? tipoObj.colore : '#666';
+                const t = tipologie.find(x => x.id == p.type);
+                const color = t ? t.colore : '#666';
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
-                m.bindPopup(`<b>${p.name}</b><br>${p.note || ''}<br><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>`);
+                
+                let popupHtml = `<b>${p.name}</b><br>${p.note || ''}<br><small>Creato da: ${p.created_by}</small>`;
+                if (isAdmin || p.created_by === currentUser.name) {
+                    popupHtml += `<br><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>`;
+                }
+                m.bindPopup(popupHtml);
                 markers[p.id] = m;
 
-                tbody.innerHTML += `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><b>${p.name}</b><br><small>${tipoObj ? tipoObj.tipo : '-'}</small></td><td style="text-align:right"><button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button></td></tr>`;
-                admPoi.innerHTML += `<div style="font-size:11px; margin-bottom:4px; border-bottom:1px solid #f2f2f2;">${p.name} <button class="btn-xs btn-danger" onclick="deletePoi('${p.id}')">X</button></div>`;
+                tbody.innerHTML += `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small></td><td style="text-align:right"><button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button></td></tr>`;
+                
+                if (isAdmin) {
+                    admPoi.innerHTML += `<div class="admin-list-item"><span>${p.name} (${p.created_by})</span><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">X</button></div>`;
+                }
             });
         }
 
-        // --- FUNZIONI ADMIN ---
-        window.addType = async function() {
-            const tipo = document.getElementById('new-type-name').value;
-            const colore = document.getElementById('new-type-color').value;
-            if (!tipo) return;
-            await supabaseClient.from('tipologie').insert([{ tipo, colore }]);
-            document.getElementById('new-type-name').value = '';
-            await loadTipologie(); await loadPois();
-        }
-
-        window.deleteType = async function(id) {
-            if (confirm("Rimuovere tipologia?")) {
-                await supabaseClient.from('tipologie').delete().eq('id', id);
-                await loadTipologie(); await loadPois();
-            }
-        }
-
-        window.addAccessUser = async function() {
-            const user = document.getElementById('new-access-user').value;
-            if (!user) return;
-            const { error } = await supabaseClient.from('accessi').insert([{ username: user }]);
-            if (error) alert("Errore: Utente già esistente o problema database.");
-            document.getElementById('new-access-user').value = '';
-            await loadAccessUsers();
-        }
-
-        window.deleteAccessUser = async function(id) {
-            await supabaseClient.from('accessi').delete().eq('id', id);
-            await loadAccessUsers();
-        }
-
-        // --- AZIONI POI ---
+        // --- AZIONI ---
         async function openActionPopup(lat, lng, preName = '') {
             const name = preName || "Punto";
             const html = `<div style="text-align:center"><strong>${name}</strong><br><br><button class="btn btn-primary" onclick="showPoiForm(${lat}, ${lng}, '${name.replace(/'/g, "\\'")}')">Salva</button></div>`;
@@ -325,20 +271,21 @@
                 <input id="f-name" value="${name}" style="width:100%;margin-bottom:5px;padding:5px;">
                 <select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
                 <textarea id="f-note" placeholder="Note..." style="width:100%;margin-bottom:5px;padding:5px;"></textarea>
-                <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Conferma</button>
+                <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Salva</button>
             </div>`;
             map.closePopup();
             setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
         }
 
         window.savePoi = async function(lat, lng) {
-            const { error } = await supabaseClient.from('pois').insert([{
+            await supabaseClient.from('pois').insert([{
                 name: document.getElementById('f-name').value,
                 type: document.getElementById('f-type').value,
                 note: document.getElementById('f-note').value,
-                lat, lng, owner_id: currentUser.id === 'guest' ? null : currentUser.id
+                lat, lng, 
+                created_by: currentUser.name
             }]);
-            if (error) alert(error.message); else { map.closePopup(); loadPois(); }
+            map.closePopup(); loadPois();
         }
 
         window.deletePoi = async function(id) {
@@ -346,6 +293,27 @@
                 await supabaseClient.from('pois').delete().eq('id', id);
                 loadPois();
             }
+        }
+
+        // --- ADMIN ---
+        window.addType = async function() {
+            const tipo = document.getElementById('new-type-name').value;
+            const colore = document.getElementById('new-type-color').value;
+            await supabaseClient.from('tipologie').insert([{ tipo, colore }]);
+            loadTipologie();
+        }
+        window.deleteType = async function(id) {
+            await supabaseClient.from('tipologie').delete().eq('id', id);
+            loadTipologie();
+        }
+        window.addAccessUser = async function() {
+            const user = document.getElementById('new-access-user').value;
+            await supabaseClient.from('accessi').insert([{ username: user }]);
+            loadAccessUsers();
+        }
+        window.deleteAccessUser = async function(id) {
+            await supabaseClient.from('accessi').delete().eq('id', id);
+            loadAccessUsers();
         }
 
         // --- UTILS ---
