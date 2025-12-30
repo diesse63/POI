@@ -43,7 +43,7 @@
         #bottom-right { position: absolute; bottom: 20px; right: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
 
         /* UI POPUPS */
-        #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 350px; max-width: 90%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 40vh; overflow-y: auto; z-index: 3500; }
+        #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 380px; max-width: 90%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 40vh; overflow-y: auto; z-index: 3500; }
         #legend { position: absolute; bottom: 75px; left: 15px; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500; }
 
         .btn { padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: 500; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -51,6 +51,7 @@
         .btn-danger { background: #d32f2f; }
         .btn-success { background: #388e3c; }
         .btn-info { background: #0288d1; }
+        .btn-warning { background: #ffa000; color: white; }
         .btn-xs { padding: 4px 8px; font-size: 11px; margin-right: 4px; }
 
         .type-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #999; flex-shrink: 0; }
@@ -173,7 +174,7 @@
             }
         });
 
-        // --- MAPPA E RICONOSCIMENTO LUOGHI ---
+        // --- MAPPA ---
         async function initMap() {
             map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 6);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -192,16 +193,10 @@
                     openActionPopup(e.geocode.center.lat, e.geocode.center.lng, e.geocode.name.split(',')[0]); 
                 }).addTo(map);
 
-            // DOPPIO CLICK: Cerca il nome del luogo e apre il popup
             map.on('dblclick', async (e) => {
-                const lat = e.latlng.lat;
-                const lng = e.latlng.lng;
-                
-                // Messaggio temporaneo di caricamento nel popup
                 const tempPopup = L.popup().setLatLng(e.latlng).setContent("<i>Ricerca informazioni luogo...</i>").openOn(map);
-                
-                const placeName = await getPlaceName(lat, lng);
-                openActionPopup(lat, lng, placeName);
+                const placeName = await getPlaceName(e.latlng.lat, e.latlng.lng);
+                openActionPopup(e.latlng.lat, e.latlng.lng, placeName);
             });
 
             await loadTipologie();
@@ -209,26 +204,16 @@
             await loadPois();
         }
 
-        // Funzione per ottenere il nome del luogo tramite Reverse Geocoding
         async function getPlaceName(lat, lng) {
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`, {
-                    headers: { 'Accept-Language': 'it' }
-                });
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'it' } });
                 const data = await response.json();
-                
                 if (!data || !data.address) return "Nuovo Punto";
-
-                // Priorità: Nome monumento/punto > via e civico > solo via
                 const addr = data.address;
                 const place = data.name || addr.amenity || addr.historic || addr.tourism || addr.shop || addr.office;
                 const road = addr.road ? (addr.house_number ? addr.road + ", " + addr.house_number : addr.road) : null;
-                
                 return place || road || "Nuovo Punto";
-            } catch (err) {
-                console.error("Errore geocoding:", err);
-                return "Nuovo Punto";
-            }
+            } catch (err) { return "Nuovo Punto"; }
         }
 
         async function openActionPopup(lat, lng, name) {
@@ -236,14 +221,48 @@
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
         }
 
-        window.showPoiForm = function(lat, lng, name) {
-            const opts = tipologie.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
-            const html = `<div style="min-width:180px;"><input id="f-name" value="${name}" style="width:100%;margin-bottom:5px;padding:5px;"><select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select><textarea id="f-note" placeholder="Note..." style="width:100%;margin-bottom:5px;padding:5px;"></textarea><button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Conferma</button></div>`;
+        // --- GESTIONE FORM (CREAZIONE / MODIFICA) ---
+        window.showPoiForm = function(lat, lng, name, id = null) {
+            let existingPoi = id ? poiData.find(p => p.id === id) : null;
+            const currentName = existingPoi ? existingPoi.name : name;
+            const currentNote = existingPoi ? existingPoi.note : "";
+            const currentType = existingPoi ? existingPoi.type : "";
+
+            const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == currentType ? 'selected' : ''}>${t.tipo}</option>`).join('');
+            
+            const html = `
+            <div style="min-width:180px;">
+                <label style="font-size:11px; color:gray;">Nome</label>
+                <input id="f-name" value="${currentName}" style="width:100%;margin-bottom:5px;padding:5px;">
+                <label style="font-size:11px; color:gray;">Categoria</label>
+                <select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
+                <label style="font-size:11px; color:gray;">Note</label>
+                <textarea id="f-note" placeholder="Note..." style="width:100%;margin-bottom:8px;padding:5px;">${currentNote}</textarea>
+                <button class="btn btn-success" style="width:100%" onclick="${id ? `updatePoi('${id}')` : `savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Conferma'}</button>
+            </div>`;
+            
             map.closePopup(); 
             setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
         };
 
-        // --- GESTIONE DATI ---
+        window.savePoi = async function(lat, lng) {
+            await client.from('pois').insert([{ name: document.getElementById('f-name').value, type: document.getElementById('f-type').value, note: document.getElementById('f-note').value, lat, lng, created_by: currentUser.name }]);
+            map.closePopup(); loadPois();
+        };
+
+        window.updatePoi = async function(id) {
+            const { error } = await client.from('pois').update({
+                name: document.getElementById('f-name').value,
+                type: document.getElementById('f-type').value,
+                note: document.getElementById('f-note').value
+            }).eq('id', id);
+            
+            if (error) alert(error.message);
+            map.closePopup();
+            loadPois();
+        };
+
+        // --- CARICAMENTO DATI ---
         async function loadTipologie() {
             const { data } = await client.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
@@ -276,23 +295,35 @@
             poiLayer.clearLayers();
             const tbody = document.getElementById('poi-table-body');
             tbody.innerHTML = '';
+            
             poiData.forEach(p => {
                 const t = tipologie.find(x => x.id == p.type);
                 const color = t ? t.colore : '#666';
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
-                let pop = `<b>${p.name}</b><br>${p.note || ''}<br><small>Da: ${p.created_by}</small>`;
-                if (isAdmin || p.created_by === currentUser.name) pop += `<br><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>`;
+                
+                let pop = `<b>${p.name}</b><br>${p.note || ''}<br><small>Da: ${p.created_by}</small><br><div style="margin-top:5px;">`;
+                if (isAdmin || p.created_by === currentUser.name) {
+                    pop += `<button class="btn btn-warning btn-xs" onclick="showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">Modifica</button>`;
+                    pop += `<button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>`;
+                }
+                pop += `</div>`;
                 m.bindPopup(pop);
                 markers[p.id] = m;
-                tbody.innerHTML += `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small></td><td style="text-align:right"><button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button></td></tr>`;
+                
+                tbody.innerHTML += `
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">
+                        <b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small>
+                    </td>
+                    <td style="text-align:right; white-space:nowrap;">
+                        <button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button>
+                        <button class="btn btn-warning btn-xs" onclick="zoomTo('${p.id}', true)">✎</button>
+                    </td>
+                </tr>`;
             });
         }
 
-        window.savePoi = async function(lat, lng) {
-            await client.from('pois').insert([{ name: document.getElementById('f-name').value, type: document.getElementById('f-type').value, note: document.getElementById('f-note').value, lat, lng, created_by: currentUser.name }]);
-            map.closePopup(); loadPois();
-        };
-
+        // --- ADMIN ACTIONS ---
         window.deletePoi = async function(id) { if (confirm("Eliminare?")) { await client.from('pois').delete().eq('id', id); loadPois(); } };
         window.addType = async function() { 
             const tipo = document.getElementById('new-type-name').value;
@@ -316,7 +347,20 @@
             const nuovoUser = prompt("Modifica nome ospite:", oldUser);
             if (nuovoUser !== null && nuovoUser !== "") { await client.from('accessi').update({ username: nuovoUser }).eq('id', id); loadAccessUsers(); }
         };
-        window.zoomTo = (id) => { const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); m.openPopup(); } };
+
+        // --- UTILS ---
+        window.zoomTo = (id, openEdit = false) => { 
+            const m = markers[id]; 
+            if (m) { 
+                map.setView(m.getLatLng(), 17); 
+                if (openEdit) {
+                    const p = poiData.find(x => x.id === id);
+                    showPoiForm(p.lat, p.lng, '', p.id);
+                } else {
+                    m.openPopup(); 
+                }
+            } 
+        };
         window.toggleTable = () => { const e = document.getElementById('poi-table-wrapper'); e.style.display = e.style.display==='block'?'none':'block'; };
         window.toggleLegend = () => { const e = document.getElementById('legend'); e.style.display = e.style.display==='block'?'none':'block'; };
         window.toggleAdminPanel = () => { const e = document.getElementById('admin-panel'); e.style.display = e.style.display==='block'?'none':'block'; };
