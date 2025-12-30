@@ -22,7 +22,7 @@
         #app-container { display: none; height: 100%; width: 100%; position: relative; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* TOP BAR */
+        /* UI TOP */
         #top-bar { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 4000; }
         .icon-btn { width: 44px; height: 44px; background: white; border-radius: 8px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: none; }
 
@@ -39,13 +39,11 @@
         #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 450px; max-width: 90%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 45vh; overflow-y: auto; z-index: 3500; }
         #legend { position: absolute; bottom: 75px; left: 15px; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500; }
 
-        /* BOTTONI */
         .btn { padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: 500; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .btn-primary { background: #1976d2; } 
         .btn-danger { background: #d32f2f; } 
         .btn-success { background: #388e3c; } 
         .btn-info { background: #0288d1; } 
-        .btn-warning { background: #ffa000; color: white; }
         .btn-xs { padding: 5px 8px; font-size: 11px; margin-right: 2px; }
 
         #poi-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -81,7 +79,7 @@
         <div id="top-bar">
             <div id="admin-btn-ui" class="icon-btn" onclick="window.toggleAdminPanel()" style="display:none;">⚙️</div>
             <div id="user-display" style="background:white; padding:0 15px; border-radius:8px; display:flex; align-items:center; font-size:12px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);"></div>
-            <button class="icon-btn" onclick="location.reload()">↻</button>
+            <button class="icon-btn" onclick="location.reload()" title="Refresh e centra posizione">↻</button>
             <button class="icon-btn" onclick="window.doLogout()">🚪</button>
         </div>
 
@@ -89,8 +87,8 @@
             <div class="admin-section">
                 <h4>Tipologie</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-type-name" name="new-type" autocomplete="off" placeholder="Nome...">
-                    <input type="color" id="new-type-color" name="new-color" value="#1976d2" style="width:40px;">
+                    <input type="text" id="new-type-name" autocomplete="off" placeholder="Nome...">
+                    <input type="color" id="new-type-color" value="#1976d2" style="width:40px;">
                     <button class="btn btn-primary btn-xs" onclick="window.addType()">+</button>
                 </div>
                 <div id="admin-type-list"></div>
@@ -98,14 +96,13 @@
             <div class="admin-section" style="border:none;">
                 <h4>Ospiti Autorizzati</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-access-user" name="new-user" autocomplete="off" placeholder="Nome ospite...">
+                    <input type="text" id="new-access-user" autocomplete="off" placeholder="Nome ospite...">
                     <button class="btn btn-primary btn-xs" onclick="window.addAccessUser()">+</button>
                 </div>
                 <div id="admin-access-list"></div>
             </div>
         </div>
 
-        <!-- ELENCO PUNTI -->
         <div id="poi-table-wrapper">
             <h4 style="margin:0 0 10px 0;">Elenco Punti</h4>
             <table id="poi-table"><tbody id="poi-table-body"></tbody></table>
@@ -130,14 +127,14 @@
         
         const supabaseClient = supabase.createClient(S_URL, S_KEY);
 
-        let currentUser = null, isAdmin = false, tipologie = [], poiData = [], map, poiLayer, markers = {};
+        let currentUser = null, isAdmin = false, tipologie = [], poiData = [], map, poiLayer, markers = {}, userLocationMarker = null;
 
         // --- AUTH ---
         window.doLogin = async function() {
             const user = document.getElementById('login-user').value.trim();
             const pass = document.getElementById('login-pass').value;
             const msg = document.getElementById('login-msg');
-            msg.textContent = "Verifica in corso...";
+            msg.textContent = "Verifica...";
             try {
                 if (pass.length > 0) {
                     const { data, error } = await supabaseClient.auth.signInWithPassword({ email: user, password: pass });
@@ -154,7 +151,6 @@
         window.doLogout = async function() {
             await supabaseClient.auth.signOut();
             localStorage.clear();
-            sessionStorage.clear();
             window.location.replace(window.location.origin + window.location.pathname);
         };
 
@@ -180,12 +176,32 @@
 
         // --- MAPPA ---
         async function initMap() {
-            map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 6);
+            // Zoom 15 corrisponde a circa 1km di raggio visualizzato su schermi standard
+            map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             poiLayer = L.layerGroup().addTo(map);
 
-            map.locate({setView: true, maxZoom: 15});
-            map.on('locationfound', e => { L.circleMarker(e.latlng, {radius: 8, color: '#1976d2', fillColor: '#1976d2', fillOpacity: 1}).addTo(map); });
+            // LOGICA GEOLOCALIZZAZIONE AUTOMATICA (Centra posizione con zoom 1 km radius)
+            map.on('locationfound', function(e) {
+                if (userLocationMarker) map.removeLayer(userLocationMarker);
+                userLocationMarker = L.circleMarker(e.latlng, {
+                    radius: 9,
+                    color: 'white',
+                    fillColor: '#1976d2',
+                    fillOpacity: 1,
+                    weight: 2
+                }).addTo(map).bindPopup("La tua posizione");
+                
+                // Centra la mappa sulla posizione trovata con zoom 15 (~1km radius)
+                map.setView(e.latlng, 15);
+            });
+
+            map.on('locationerror', function() {
+                console.warn("Accesso alla posizione negato o non disponibile.");
+            });
+
+            // Avvia ricerca posizione (questo avverrà ad ogni load/refresh)
+            map.locate({ setView: true, maxZoom: 15 });
 
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
                 .on('markgeocode', e => { 
@@ -222,13 +238,12 @@
                     <strong>${name}</strong><br><br>
                     <div style="display:flex; flex-direction:column; gap:6px;">
                         <button class="btn btn-primary" onclick="window.showPoiForm(${lat}, ${lng}, '${safeName}')">💾 Salva Punto</button>
-                        <button class="btn btn-info" onclick="window.open('${wikiSearchUrl}', '_blank')">📖 Cerca Wikipedia</button>
+                        <button class="btn btn-info" onclick="window.open('${wikiSearchUrl}', '_blank')">📖 Wikipedia</button>
                     </div>
                 </div>`;
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
         }
 
-        // --- FORM POI ---
         window.showPoiForm = function(lat, lng, name, id = null) {
             const poi = id ? poiData.find(p => p.id === id) : null;
             const n = poi ? poi.name : name;
@@ -237,11 +252,11 @@
             const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == type ? 'selected' : ''}>${t.tipo}</option>`).join('');
             const html = `<div style="min-width:180px;">
                 <label style="font-size:11px;">Nome</label>
-                <input id="f-name" name="poi-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;">
+                <input id="f-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;">
                 <label style="font-size:11px;">Categoria</label>
-                <select id="f-type" name="poi-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
+                <select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
                 <label style="font-size:11px;">Note</label>
-                <textarea id="f-note" name="poi-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea>
+                <textarea id="f-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea>
                 <button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button>
             </div>`;
             map.closePopup();
@@ -260,7 +275,6 @@
 
         window.deletePoi = async function(id) { if (confirm("Eliminare definitivamente?")) { await supabaseClient.from('pois').delete().eq('id', id); loadPois(); } };
 
-        // --- DATI ---
         async function loadTipologie() {
             const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
@@ -298,7 +312,6 @@
                 const t = tipologie.find(x => x.id == p.type);
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: t ? t.colore : '#666', color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
                 
-                // POPUP
                 let pop = `<b>${p.name}</b><br>${p.note || ''}<br><div style="margin-top:8px; display:flex; gap:3px; flex-wrap:wrap;">`;
                 pop += `<button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button>`;
                 pop += `<button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
@@ -312,23 +325,20 @@
                 tbody.innerHTML += `<tr>
                     <td><b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small></td>
                     <td style="text-align:right; white-space:nowrap;">
-                        <button class="btn btn-primary btn-xs" title="Vai" onclick="window.zoomTo('${p.id}')">Vai</button>
-                        <button class="btn btn-info btn-xs" title="Wikipedia" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖</button>
-                        <button class="btn btn-success btn-xs" title="Google Maps" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️</button>
-                        <button class="btn btn-warning btn-xs" title="Modifica" onclick="window.zoomTo('${p.id}', true)">✎</button>
-                        <button class="btn btn-danger btn-xs" title="Elimina" onclick="window.deletePoi('${p.id}')">X</button>
+                        <button class="btn btn-primary btn-xs" onclick="window.zoomTo('${p.id}')">Vai</button>
+                        <button class="btn btn-warning btn-xs" onclick="window.zoomTo('${p.id}', true)">✎</button>
+                        <button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>
                     </td>
                 </tr>`;
             });
         }
 
-        // --- ADMIN ---
-        window.addType = async function() { await supabaseClient.from('tipologie').insert([{ tipo: document.getElementById('new-type-name').value, colore: document.getElementById('new-type-color').value }]); loadTipologie(); };
         window.deleteType = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('tipologie').delete().eq('id', id); loadTipologie(); loadPois(); } };
         window.editType = async function(id, n, c) {
             const nn = prompt("Nome:", n), nc = prompt("Colore:", c);
             if (nn) { await supabaseClient.from('tipologie').update({ tipo: nn, colore: nc || c }).eq('id', id); loadTipologie(); loadPois(); }
         };
+        window.addType = async function() { await supabaseClient.from('tipologie').insert([{ tipo: document.getElementById('new-type-name').value, colore: document.getElementById('new-type-color').value }]); loadTipologie(); };
         window.addAccessUser = async function() { await supabaseClient.from('accessi').insert([{ username: document.getElementById('new-access-user').value }]); loadAccessUsers(); };
         window.deleteAccessUser = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('accessi').delete().eq('id', id); loadAccessUsers(); } };
         window.editAccessUser = async function(id, u) {
@@ -336,7 +346,6 @@
             if (nu) { await supabaseClient.from('accessi').update({ username: nu }).eq('id', id); loadAccessUsers(); }
         };
 
-        // --- UTILS ---
         window.zoomTo = (id, edit = false) => { 
             const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); if (edit) { const p = poiData.find(x => x.id === id); window.showPoiForm(p.lat, p.lng, '', p.id); } else m.openPopup(); } 
         };

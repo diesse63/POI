@@ -64,7 +64,7 @@
     <!-- LOGIN -->
     <div id="login-screen">
         <div class="login-box">
-            <h2 style="color:#1976d2;">Accesso Mappa</h2>
+            <h2 style="color:#1976d2;">Mappa POI</h2>
             <form id="login-form" onsubmit="window.doLogin(); return false;">
                 <input type="text" id="login-user" name="username" autocomplete="username" placeholder="Email o Nome Ospite" required />
                 <input type="password" id="login-pass" name="password" autocomplete="current-password" placeholder="Password (vuota per Ospite)" />
@@ -215,7 +215,16 @@
         }
 
         function openActionPopup(lat, lng, name) {
-            const html = `<div style="text-align:center"><strong>${name}</strong><br><br><button class="btn btn-primary" onclick="window.showPoiForm(${lat}, ${lng}, '${name.replace(/'/g, "\\'")}')">Salva</button></div>`;
+            const safeName = name.replace(/'/g, "\\'");
+            const wikiSearchUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
+            const html = `
+                <div style="text-align:center">
+                    <strong>${name}</strong><br><br>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <button class="btn btn-primary" onclick="window.showPoiForm(${lat}, ${lng}, '${safeName}')">💾 Salva Punto</button>
+                        <button class="btn btn-info" onclick="window.open('${wikiSearchUrl}', '_blank')">📖 Cerca Wikipedia</button>
+                    </div>
+                </div>`;
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
         }
 
@@ -289,6 +298,7 @@
                 const t = tipologie.find(x => x.id == p.type);
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: t ? t.colore : '#666', color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
                 
+                // POPUP
                 let pop = `<b>${p.name}</b><br>${p.note || ''}<br><div style="margin-top:8px; display:flex; gap:3px; flex-wrap:wrap;">`;
                 pop += `<button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button>`;
                 pop += `<button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
