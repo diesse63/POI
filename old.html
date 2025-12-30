@@ -36,7 +36,6 @@
         .admin-section { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
         .admin-section h4 { margin: 0 0 10px 0; color: #1976d2; font-size: 13px; text-transform: uppercase; }
         
-        /* LISTA ADMIN: Bottoni a SX, Testo a DX */
         .admin-list-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
         .admin-list-text { flex: 1; margin-left: 12px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -155,10 +154,23 @@
             } catch (err) { msg.textContent = err.message; }
         };
 
+        // FUNZIONE LOGOUT CORRETTA E PROFONDA
         window.doLogout = async function() {
-            await client.auth.signOut();
-            localStorage.removeItem('poi_guest');
-            window.location.reload();
+            try {
+                // 1. Disconnessione da Supabase
+                await client.auth.signOut();
+                
+                // 2. Pulizia totale storage (rimuove token Supabase e guest name)
+                localStorage.clear(); 
+                sessionStorage.clear();
+
+                // 3. Reindirizzamento forzato all'URL base per resettare lo stato dello script
+                window.location.replace(window.location.origin + window.location.pathname);
+            } catch (e) {
+                // In caso di errore estremo, puliamo tutto e ricarichiamo comunque
+                localStorage.clear();
+                window.location.reload();
+            }
         };
 
         document.addEventListener('DOMContentLoaded', async () => {
