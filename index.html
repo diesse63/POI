@@ -22,7 +22,7 @@
         #app-container { display: none; height: 100%; width: 100%; position: relative; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* UI TOP */
+        /* TOP BAR */
         #top-bar { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 4000; }
         .icon-btn { width: 44px; height: 44px; background: white; border-radius: 8px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: none; }
 
@@ -39,11 +39,13 @@
         #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 450px; max-width: 90%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 45vh; overflow-y: auto; z-index: 3500; }
         #legend { position: absolute; bottom: 75px; left: 15px; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500; }
 
+        /* BOTTONI */
         .btn { padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: 500; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .btn-primary { background: #1976d2; } 
         .btn-danger { background: #d32f2f; } 
         .btn-success { background: #388e3c; } 
         .btn-info { background: #0288d1; } 
+        .btn-dark { background: #343a40; color: white; } /* IL NUOVO COLORE SCURO */
         .btn-xs { padding: 5px 8px; font-size: 11px; margin-right: 2px; }
 
         #poi-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -176,31 +178,18 @@
 
         // --- MAPPA ---
         async function initMap() {
-            // Zoom 15 corrisponde a circa 1km di raggio visualizzato su schermi standard
             map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             poiLayer = L.layerGroup().addTo(map);
 
-            // LOGICA GEOLOCALIZZAZIONE AUTOMATICA (Centra posizione con zoom 1 km radius)
             map.on('locationfound', function(e) {
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
                 userLocationMarker = L.circleMarker(e.latlng, {
-                    radius: 9,
-                    color: 'white',
-                    fillColor: '#1976d2',
-                    fillOpacity: 1,
-                    weight: 2
-                }).addTo(map).bindPopup("La tua posizione");
-                
-                // Centra la mappa sulla posizione trovata con zoom 15 (~1km radius)
+                    radius: 9, color: 'white', fillColor: '#1976d2', fillOpacity: 1, weight: 2
+                }).addTo(map).bindPopup("Tua posizione attuale");
                 map.setView(e.latlng, 15);
             });
 
-            map.on('locationerror', function() {
-                console.warn("Accesso alla posizione negato o non disponibile.");
-            });
-
-            // Avvia ricerca posizione (questo avverrà ad ogni load/refresh)
             map.locate({ setView: true, maxZoom: 15 });
 
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
@@ -283,7 +272,7 @@
                 document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `
                     <div class="admin-list-item">
                         <button class="btn btn-danger btn-xs" onclick="window.deleteType(${t.id})">X</button>
-                        <button class="btn btn-warning btn-xs" onclick="window.editType(${t.id}, '${t.tipo}', '${t.colore}')">✎</button>
+                        <button class="btn btn-dark btn-xs" onclick="window.editType(${t.id}, '${t.tipo}', '${t.colore}')">✎</button>
                         <div class="admin-list-text"><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</div>
                     </div>`).join('');
             }
@@ -294,7 +283,7 @@
             document.getElementById('admin-access-list').innerHTML = (data || []).map(u => `
                 <div class="admin-list-item">
                     <button class="btn btn-danger btn-xs" onclick="window.deleteAccessUser(${u.id})">X</button>
-                    <button class="btn btn-warning btn-xs" onclick="window.editAccessUser(${u.id}, '${u.username}')">✎</button>
+                    <button class="btn btn-dark btn-xs" onclick="window.editAccessUser(${u.id}, '${u.username}')">✎</button>
                     <div class="admin-list-text">👤 ${u.username}</div>
                 </div>`).join('');
         }
@@ -316,7 +305,7 @@
                 pop += `<button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button>`;
                 pop += `<button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
                 if (isAdmin || p.created_by === currentUser.name) {
-                    pop += `<button class="btn btn-warning btn-xs" onclick="window.showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">✎</button>`;
+                    pop += `<button class="btn btn-dark btn-xs" onclick="window.showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">✎</button>`;
                     pop += `<button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>`;
                 }
                 m.bindPopup(pop + "</div>");
@@ -326,7 +315,9 @@
                     <td><b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small></td>
                     <td style="text-align:right; white-space:nowrap;">
                         <button class="btn btn-primary btn-xs" onclick="window.zoomTo('${p.id}')">Vai</button>
-                        <button class="btn btn-warning btn-xs" onclick="window.zoomTo('${p.id}', true)">✎</button>
+                        <button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖</button>
+                        <button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️</button>
+                        <button class="btn btn-dark btn-xs" onclick="window.zoomTo('${p.id}', true)">✎</button>
                         <button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>
                     </td>
                 </tr>`;
