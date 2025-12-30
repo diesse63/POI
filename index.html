@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mappa Gestionale POI</title>
 
-    <!-- Librerie Leaflet e Supabase (SOLO QUESTE) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -39,21 +38,20 @@
 
         /* ADMIN PANEL */
         #admin-panel {
-            position: absolute; top: 70px; right: 15px; width: 350px; max-width: 90vw;
+            position: absolute; top: 70px; right: 15px; width: 380px; max-width: 90vw;
             background: white; border-radius: 10px; padding: 15px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: none; z-index: 5000;
             max-height: 80vh; overflow-y: auto;
         }
         .admin-section { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
-        .admin-section h4 { margin: 0 0 10px 0; color: #1976d2; font-size: 14px; text-transform: uppercase; }
+        .admin-section h4 { margin: 0 0 10px 0; color: #1976d2; font-size: 13px; text-transform: uppercase; }
         .admin-list-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
-        .poi-admin-card { background: #f8f9fa; padding: 8px; border-radius: 4px; margin-bottom: 5px; font-size: 12px; border-left: 4px solid #1976d2; }
-
-        /* POSIZIONAMENTO BOTTONI RICHIESTO */
+        
+        /* BOTTONI POSIZIONAMENTO */
         #bottom-left { position: absolute; bottom: 20px; left: 15px; z-index: 3000; }
         #bottom-right { position: absolute; bottom: 20px; right: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
 
-        /* POPUP UI (Sopra i bottoni) */
+        /* UI POPUPS */
         #poi-table-wrapper {
             position: absolute; bottom: 120px; right: 15px; width: 350px; max-width: 90%;
             background: white; border-radius: 10px; padding: 12px;
@@ -71,32 +69,26 @@
         .btn-danger { background: #d32f2f; }
         .btn-success { background: #388e3c; }
         .btn-info { background: #0288d1; }
-        .btn-warning { background: #ffa000; color: white; }
         .btn-xs { padding: 4px 8px; font-size: 11px; }
 
-        #poi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        #poi-table td { padding: 8px; border-bottom: 1px solid #eee; }
-
-        .poi-form input, .poi-form select, .poi-form textarea { width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        
-        @media print {
-            .btn-print-hide, .leaflet-control-container, #top-bar, #bottom-left, #bottom-right, #admin-panel { display: none !important; }
-            #poi-table-wrapper { display: block !important; position: static !important; width: 100% !important; max-height: none !important; }
-        }
+        .type-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #999; vertical-align: middle; }
     </style>
 </head>
 <body>
 
+    <!-- LOGIN -->
     <div id="login-screen">
         <div class="login-box">
-            <h2 style="color:#1976d2;">Accesso Mappa</h2>
-            <input type="email" id="login-email" placeholder="Email" />
-            <input type="password" id="login-pass" placeholder="Password" />
+            <h2 style="color:#1976d2; margin-bottom:5px;">Mappa POI</h2>
+            <p style="font-size:12px; color:#666; margin-bottom:20px;">Inserisci email/pass oppure il Nome Utente autorizzato</p>
+            <input type="text" id="login-email" placeholder="Email o Nome Utente" />
+            <input type="password" id="login-pass" placeholder="Password (vuota per accesso rapido)" />
             <button onclick="doLogin()">Entra</button>
             <p id="login-msg" style="color:red; font-size:12px; margin-top:10px;"></p>
         </div>
     </div>
 
+    <!-- APP -->
     <div id="app-container">
         <div id="map"></div>
 
@@ -110,25 +102,34 @@
         <!-- Pannello Admin -->
         <div id="admin-panel">
             <div class="admin-section">
-                <h4>Tipologie</h4>
+                <h4>Gestione Tipologie (Nome e Colore)</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-type-name" placeholder="Nome..." style="flex:1;">
-                    <input type="color" id="new-type-color" value="#1976d2" style="width:35px;">
-                    <button class="btn btn-primary btn-xs" onclick="addType()">+</button>
+                    <input type="text" id="new-type-name" placeholder="Nome tipo..." style="flex:1; padding:5px;">
+                    <input type="color" id="new-type-color" value="#1976d2" style="width:40px; border:none; padding:0;">
+                    <button class="btn btn-primary btn-xs" onclick="addType()">Aggiungi</button>
                 </div>
                 <div id="admin-type-list"></div>
             </div>
+
+            <div class="admin-section">
+                <h4>Utenti Autorizzati (Senza Password)</h4>
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                    <input type="text" id="new-access-user" placeholder="Nome utente..." style="flex:1; padding:5px;">
+                    <button class="btn btn-primary btn-xs" onclick="addAccessUser()">Autorizza</button>
+                </div>
+                <div id="admin-access-list"></div>
+            </div>
+
             <div class="admin-section" style="border:none;">
-                <h4>Gestione Punti</h4>
-                <input type="text" id="admin-poi-search" placeholder="Cerca punto..." onkeyup="filterAdminPois()" style="width:100%; padding:8px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px;">
-                <div id="admin-poi-list"></div>
+                <h4>Gestione Rapida Punti</h4>
+                <div id="admin-poi-list" style="max-height:150px; overflow-y:auto; border:1px solid #eee; padding:5px; border-radius:4px;"></div>
             </div>
         </div>
 
-        <!-- Tabella Elenco -->
+        <!-- Popups Elenco e Legenda -->
         <div id="poi-table-wrapper">
             <h4 style="margin:0 0 10px 0;">Elenco Punti</h4>
-            <table id="poi-table"><tbody id="poi-table-body"></tbody></table>
+            <table id="poi-table" style="width:100%; border-collapse:collapse;"><tbody id="poi-table-body"></tbody></table>
         </div>
 
         <div id="legend">
@@ -138,12 +139,12 @@
 
         <!-- Bottoni Inferiori -->
         <div id="bottom-left">
-            <button class="btn btn-success btn-print-hide" onclick="toggleLegend()">📍 Legenda</button>
+            <button class="btn btn-success" onclick="toggleLegend()">📍 Legenda</button>
         </div>
 
         <div id="bottom-right">
-            <button class="btn btn-primary btn-print-hide" onclick="toggleTable()">📋 Elenco Punti</button>
-            <button class="btn btn-info btn-print-hide" onclick="window.print()">🖨️ Stampa</button>
+            <button class="btn btn-primary" onclick="toggleTable()">📋 Elenco Punti</button>
+            <button class="btn btn-info" onclick="window.print()">🖨️ Stampa</button>
         </div>
     </div>
 
@@ -163,43 +164,60 @@
 
         // --- AUTH ---
         async function doLogin() {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-pass').value;
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            if (error) document.getElementById('login-msg').textContent = error.message;
-            else location.reload();
+            const userInp = document.getElementById('login-email').value;
+            const passInp = document.getElementById('login-pass').value;
+            const msg = document.getElementById('login-msg');
+
+            // Caso A: Accesso con Password (Standard)
+            if (passInp.length > 0) {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email: userInp, password: passInp });
+                if (error) msg.textContent = "Errore password: " + error.message;
+                else location.reload();
+                return;
+            }
+
+            // Caso B: Accesso senza Password (Controllo tabella 'accessi')
+            const { data, error } = await supabaseClient.from('accessi').select('*').eq('username', userInp).single();
+            if (data) {
+                // Salviamo in locale il nome utente per simulare la sessione
+                localStorage.setItem('guest_user', userInp);
+                location.reload();
+            } else {
+                msg.textContent = "Nome utente non autorizzato o inserire password.";
+            }
         }
 
         async function doLogout() {
             await supabaseClient.auth.signOut();
+            localStorage.removeItem('guest_user');
             location.reload();
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) {
-                currentUser = session.user;
+            const guest = localStorage.getItem('guest_user');
+
+            if (session || guest) {
+                currentUser = session ? session.user : { email: guest, id: 'guest' };
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
-                document.getElementById('user-display').textContent = currentUser.email;
+                document.getElementById('user-display').textContent = guest || currentUser.email;
                 initMap();
             }
         });
 
-        // --- MAPPA & GPS ---
+        // --- MAPPA ---
         async function initMap() {
             map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 6);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             poiLayer = L.layerGroup().addTo(map);
 
-            // Attiva Posizione
-            map.locate({setView: true, maxZoom: 15});
+            // Attivazione GPS
+            map.locate({setView: true, maxZoom: 14});
             map.on('locationfound', e => {
-                if (userMarker) map.removeLayer(userMarker);
-                userMarker = L.circleMarker(e.latlng, {radius: 10, color: '#1976d2', fillColor: '#1976d2', fillOpacity: 0.5}).addTo(map).bindPopup("Sei qui");
+                L.circleMarker(e.latlng, {radius: 8, color: '#1976d2'}).addTo(map).bindPopup("Sei qui");
             });
 
-            // Ricerca indirizzi
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
                 .on('markgeocode', e => {
                     map.fitBounds(e.geocode.bbox);
@@ -209,6 +227,7 @@
             map.on('dblclick', e => openActionPopup(e.latlng.lat, e.latlng.lng));
 
             await loadTipologie();
+            await loadAccessUsers();
             await loadPois();
         }
 
@@ -217,77 +236,52 @@
             const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
             
+            // UI Legenda
             document.getElementById('legend-content').innerHTML = tipologie.map(t => 
-                `<div style="display:flex;align-items:center;margin-bottom:4px;font-size:13px;">
-                    <span style="width:12px;height:12px;border-radius:50%;background:${t.colore};margin-right:8px;border:1px solid #999;"></span>${t.tipo}
-                </div>`
+                `<div class="legend-item"><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</div>`
             ).join('');
 
+            // UI Admin Tipologie (Nome + Colore)
             document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `
                 <div class="admin-list-item">
-                    <span>${t.tipo}</span>
+                    <span><span class="type-dot" style="background:${t.colore}"></span> <b>${t.tipo}</b></span>
                     <button class="btn btn-danger btn-xs" onclick="deleteType(${t.id})">Rimuovi</button>
                 </div>
             `).join('');
         }
 
-        async function loadPois() {
-            const { data, error } = await supabaseClient.from('pois').select('*');
-            if (error) return;
-            
-            // FIX ERRORE LOCALECOMPARE: Proteggiamo i nomi nulli
-            poiData = (data || []).sort((a, b) => {
-                const nameA = a.name || "";
-                const nameB = b.name || "";
-                return nameA.localeCompare(nameB);
-            });
+        async function loadAccessUsers() {
+            const { data } = await supabaseClient.from('accessi').select('*').order('username');
+            document.getElementById('admin-access-list').innerHTML = (data || []).map(u => `
+                <div class="admin-list-item">
+                    <span>👤 ${u.username}</span>
+                    <button class="btn btn-danger btn-xs" onclick="deleteAccessUser(${u.id})">Rimuovi</button>
+                </div>
+            `).join('');
+        }
 
+        async function loadPois() {
+            const { data } = await supabaseClient.from('pois').select('*').order('name');
+            poiData = data || [];
             poiLayer.clearLayers();
             markers = {};
             const tbody = document.getElementById('poi-table-body');
-            const adminList = document.getElementById('admin-poi-list');
-            tbody.innerHTML = '';
-            adminList.innerHTML = '';
+            const admPoi = document.getElementById('admin-poi-list');
+            tbody.innerHTML = ''; admPoi.innerHTML = '';
 
             poiData.forEach(p => {
                 const tipoObj = tipologie.find(t => t.id == p.type);
                 const color = tipoObj ? tipoObj.colore : '#666';
-                
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
-                m.bindPopup(`<b>${p.name || 'Senza nome'}</b><br>${p.note || ''}<br><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>`);
+                m.bindPopup(`<b>${p.name}</b><br>${p.note || ''}<br><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>`);
                 markers[p.id] = m;
 
-                tbody.innerHTML += `<tr><td><b>${p.name || 'Senza nome'}</b><br><small>${tipoObj ? tipoObj.tipo : '-'}</small></td><td style="text-align:right"><button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button></td></tr>`;
-
-                adminList.innerHTML += `
-                    <div class="poi-admin-card" data-name="${(p.name || '').toLowerCase()}">
-                        <div style="display:flex; justify-content:space-between;">
-                            <strong>${p.name || 'Senza nome'}</strong>
-                            <div>
-                                <button class="btn btn-warning btn-xs" onclick="editPoiPrompt('${p.id}')">✎</button>
-                                <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">X</button>
-                            </div>
-                        </div>
-                    </div>`;
+                tbody.innerHTML += `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><b>${p.name}</b><br><small>${tipoObj ? tipoObj.tipo : '-'}</small></td><td style="text-align:right"><button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button></td></tr>`;
+                admPoi.innerHTML += `<div style="font-size:11px; margin-bottom:4px; border-bottom:1px solid #f2f2f2;">${p.name} <button class="btn-xs btn-danger" onclick="deletePoi('${p.id}')">X</button></div>`;
             });
         }
 
-        // --- AZIONI ADMIN ---
-        window.filterAdminPois = function() {
-            const val = document.getElementById('admin-poi-search').value.toLowerCase();
-            document.querySelectorAll('.poi-admin-card').forEach(card => {
-                card.style.display = card.dataset.name.includes(val) ? 'block' : 'none';
-            });
-        }
-
-        window.editPoiPrompt = async function(id) {
-            const p = poiData.find(x => x.id === id);
-            const newName = prompt("Nuovo nome:", p.name || "");
-            if (newName === null) return;
-            const { error } = await supabaseClient.from('pois').update({ name: newName }).eq('id', id);
-            if (error) alert(error.message); else loadPois();
-        }
-
+        // --- FUNZIONI ADMIN ---
         window.addType = async function() {
             const tipo = document.getElementById('new-type-name').value;
             const colore = document.getElementById('new-type-color').value;
@@ -304,20 +298,34 @@
             }
         }
 
-        // --- SALVATAGGIO ---
+        window.addAccessUser = async function() {
+            const user = document.getElementById('new-access-user').value;
+            if (!user) return;
+            const { error } = await supabaseClient.from('accessi').insert([{ username: user }]);
+            if (error) alert("Errore: Utente già esistente o problema database.");
+            document.getElementById('new-access-user').value = '';
+            await loadAccessUsers();
+        }
+
+        window.deleteAccessUser = async function(id) {
+            await supabaseClient.from('accessi').delete().eq('id', id);
+            await loadAccessUsers();
+        }
+
+        // --- AZIONI POI ---
         async function openActionPopup(lat, lng, preName = '') {
-            const name = preName || "Nuovo Punto";
+            const name = preName || "Punto";
             const html = `<div style="text-align:center"><strong>${name}</strong><br><br><button class="btn btn-primary" onclick="showPoiForm(${lat}, ${lng}, '${name.replace(/'/g, "\\'")}')">Salva</button></div>`;
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
         }
 
         window.showPoiForm = function(lat, lng, name) {
             const opts = tipologie.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
-            const html = `<div class="poi-form" style="min-width:180px;">
-                <input id="f-name" value="${name}">
-                <select id="f-type">${opts}</select>
-                <textarea id="f-note" placeholder="Note..."></textarea>
-                <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Salva</button>
+            const html = `<div style="min-width:180px;">
+                <input id="f-name" value="${name}" style="width:100%;margin-bottom:5px;padding:5px;">
+                <select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
+                <textarea id="f-note" placeholder="Note..." style="width:100%;margin-bottom:5px;padding:5px;"></textarea>
+                <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Conferma</button>
             </div>`;
             map.closePopup();
             setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
@@ -328,13 +336,13 @@
                 name: document.getElementById('f-name').value,
                 type: document.getElementById('f-type').value,
                 note: document.getElementById('f-note').value,
-                lat, lng, owner_id: currentUser.id
+                lat, lng, owner_id: currentUser.id === 'guest' ? null : currentUser.id
             }]);
             if (error) alert(error.message); else { map.closePopup(); loadPois(); }
         }
 
         window.deletePoi = async function(id) {
-            if (confirm("Eliminare definitivamente?")) {
+            if (confirm("Eliminare?")) {
                 await supabaseClient.from('pois').delete().eq('id', id);
                 loadPois();
             }
@@ -342,9 +350,9 @@
 
         // --- UTILS ---
         window.zoomTo = (id) => { const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); m.openPopup(); } };
-        window.toggleTable = () => { const e = document.getElementById('poi-table-wrapper'); e.style.display = e.style.display==='block' ? 'none' : 'block'; };
-        window.toggleLegend = () => { const e = document.getElementById('legend'); e.style.display = e.style.display==='block' ? 'none' : 'block'; };
-        window.toggleAdminPanel = () => { const e = document.getElementById('admin-panel'); e.style.display = e.style.display==='block' ? 'none' : 'block'; };
+        window.toggleTable = () => { const e = document.getElementById('poi-table-wrapper'); e.style.display = e.style.display==='block'?'none':'block'; };
+        window.toggleLegend = () => { const e = document.getElementById('legend'); e.style.display = e.style.display==='block'?'none':'block'; };
+        window.toggleAdminPanel = () => { const e = document.getElementById('admin-panel'); e.style.display = e.style.display==='block'?'none':'block'; };
     </script>
 </body>
 </html>
