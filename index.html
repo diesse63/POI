@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mappa POI Gestionale PRO</title>
+    <title>Mappa Gestionale POI</title>
 
-    <!-- Librerie Leaflet e Supabase -->
+    <!-- Librerie Leaflet e Supabase (SOLO QUESTE) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -13,6 +13,7 @@
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f0f2f5; }
         
+        /* LOGIN */
         #login-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #f0f2f5; z-index: 9999; display: flex;
@@ -28,7 +29,7 @@
         #app-container { display: none; height: 100%; width: 100%; position: relative; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* UI Top */
+        /* TOP BAR */
         #top-bar { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 4000; }
         .icon-btn {
             width: 44px; height: 44px; background: white; border-radius: 8px;
@@ -36,7 +37,7 @@
             cursor: pointer; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: none;
         }
 
-        /* Pannello Admin Espanso */
+        /* ADMIN PANEL */
         #admin-panel {
             position: absolute; top: 70px; right: 15px; width: 350px; max-width: 90vw;
             background: white; border-radius: 10px; padding: 15px;
@@ -45,38 +46,36 @@
         }
         .admin-section { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
         .admin-section h4 { margin: 0 0 10px 0; color: #1976d2; font-size: 14px; text-transform: uppercase; }
-        
         .admin-list-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f9f9f9; font-size: 13px; }
-        .poi-admin-card { background: #f8f9fa; padding: 8px; border-radius: 4px; margin-bottom: 5px; font-size: 12px; }
+        .poi-admin-card { background: #f8f9fa; padding: 8px; border-radius: 4px; margin-bottom: 5px; font-size: 12px; border-left: 4px solid #1976d2; }
 
-        /* UI Bottom Layout */
+        /* POSIZIONAMENTO BOTTONI RICHIESTO */
         #bottom-left { position: absolute; bottom: 20px; left: 15px; z-index: 3000; }
         #bottom-right { position: absolute; bottom: 20px; right: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
 
-        /* Popups UI */
+        /* POPUP UI (Sopra i bottoni) */
         #poi-table-wrapper {
-            position: absolute; bottom: 85px; right: 15px; width: 400px; max-width: 90%;
+            position: absolute; bottom: 120px; right: 15px; width: 350px; max-width: 90%;
             background: white; border-radius: 10px; padding: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none;
-            max-height: 45vh; overflow-y: auto; z-index: 3500;
+            max-height: 40vh; overflow-y: auto; z-index: 3500;
         }
         #legend {
-            position: absolute; bottom: 85px; left: 15px;
+            position: absolute; bottom: 70px; left: 15px;
             background: white; padding: 12px; border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500;
         }
 
-        #poi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        #poi-table td { padding: 8px; border-bottom: 1px solid #eee; }
-
-        /* Bottoni */
         .btn { padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: 500; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .btn-primary { background: #1976d2; }
         .btn-danger { background: #d32f2f; }
         .btn-success { background: #388e3c; }
         .btn-info { background: #0288d1; }
         .btn-warning { background: #ffa000; color: white; }
-        .btn-xs { padding: 4px 8px; font-size: 11px; margin-left: 2px; }
+        .btn-xs { padding: 4px 8px; font-size: 11px; }
+
+        #poi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        #poi-table td { padding: 8px; border-bottom: 1px solid #eee; }
 
         .poi-form input, .poi-form select, .poi-form textarea { width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         
@@ -88,10 +87,9 @@
 </head>
 <body>
 
-    <!-- LOGIN -->
     <div id="login-screen">
         <div class="login-box">
-            <h2 style="margin:0 0 20px 0; color:#1976d2;">Mappa Gestionale</h2>
+            <h2 style="color:#1976d2;">Accesso Mappa</h2>
             <input type="email" id="login-email" placeholder="Email" />
             <input type="password" id="login-pass" placeholder="Password" />
             <button onclick="doLogin()">Entra</button>
@@ -99,43 +97,38 @@
         </div>
     </div>
 
-    <!-- APP -->
     <div id="app-container">
         <div id="map"></div>
 
-        <!-- Top Bar -->
         <div id="top-bar">
-            <div id="admin-btn" class="icon-btn" onclick="toggleAdminPanel()" title="Amministrazione">⚙️</div>
+            <div id="admin-btn" class="icon-btn" onclick="toggleAdminPanel()">⚙️</div>
             <div style="background:white; padding:0 15px; border-radius:8px; display:flex; align-items:center; font-size:12px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);" id="user-display"></div>
             <button class="icon-btn" onclick="location.reload()">↻</button>
             <button class="icon-btn" onclick="doLogout()">🚪</button>
         </div>
 
-        <!-- Pannello Amministratore -->
+        <!-- Pannello Admin -->
         <div id="admin-panel">
             <div class="admin-section">
-                <h4>Gestione Tipologie</h4>
+                <h4>Tipologie</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-type-name" placeholder="Nuovo tipo..." style="flex:1; padding:5px;">
-                    <input type="color" id="new-type-color" value="#1976d2" style="width:35px; border:none; padding:0;">
-                    <button class="btn btn-primary btn-xs" onclick="addType()">Aggiungi</button>
+                    <input type="text" id="new-type-name" placeholder="Nome..." style="flex:1;">
+                    <input type="color" id="new-type-color" value="#1976d2" style="width:35px;">
+                    <button class="btn btn-primary btn-xs" onclick="addType()">+</button>
                 </div>
                 <div id="admin-type-list"></div>
             </div>
-
             <div class="admin-section" style="border:none;">
-                <h4>Gestione Punti (POI)</h4>
+                <h4>Gestione Punti</h4>
                 <input type="text" id="admin-poi-search" placeholder="Cerca punto..." onkeyup="filterAdminPois()" style="width:100%; padding:8px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px;">
                 <div id="admin-poi-list"></div>
             </div>
         </div>
 
-        <!-- Overlay UI -->
+        <!-- Tabella Elenco -->
         <div id="poi-table-wrapper">
-            <h4 style="margin:0 0 10px 0;">Elenco Generale</h4>
-            <table id="poi-table">
-                <tbody id="poi-table-body"></tbody>
-            </table>
+            <h4 style="margin:0 0 10px 0;">Elenco Punti</h4>
+            <table id="poi-table"><tbody id="poi-table-body"></tbody></table>
         </div>
 
         <div id="legend">
@@ -199,8 +192,14 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             poiLayer = L.layerGroup().addTo(map);
 
-            locateUser();
+            // Attiva Posizione
+            map.locate({setView: true, maxZoom: 15});
+            map.on('locationfound', e => {
+                if (userMarker) map.removeLayer(userMarker);
+                userMarker = L.circleMarker(e.latlng, {radius: 10, color: '#1976d2', fillColor: '#1976d2', fillOpacity: 0.5}).addTo(map).bindPopup("Sei qui");
+            });
 
+            // Ricerca indirizzi
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
                 .on('markgeocode', e => {
                     map.fitBounds(e.geocode.bbox);
@@ -213,40 +212,38 @@
             await loadPois();
         }
 
-        function locateUser() {
-            if (!navigator.geolocation) return;
-            navigator.geolocation.getCurrentPosition(pos => {
-                const { latitude, longitude } = pos.coords;
-                if (userMarker) map.removeLayer(userMarker);
-                userMarker = L.circleMarker([latitude, longitude], { radius: 10, color: '#1976d2', fillColor: '#1976d2', fillOpacity: 0.5 }).addTo(map)
-                    .bindPopup("Tua Posizione");
-                map.setView([latitude, longitude], 14);
-            }, null, { enableHighAccuracy: true });
-        }
-
         // --- CARICAMENTO DATI ---
         async function loadTipologie() {
             const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
             
             document.getElementById('legend-content').innerHTML = tipologie.map(t => 
-                `<div class="legend-item"><span class="legend-color" style="background:${t.colore}"></span>${t.tipo}</div>`
+                `<div style="display:flex;align-items:center;margin-bottom:4px;font-size:13px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:${t.colore};margin-right:8px;border:1px solid #999;"></span>${t.tipo}
+                </div>`
             ).join('');
 
             document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `
                 <div class="admin-list-item">
-                    <span><i style="background:${t.colore}; width:12px; height:12px; display:inline-block; border-radius:50%; margin-right:5px;"></i>${t.tipo}</span>
+                    <span>${t.tipo}</span>
                     <button class="btn btn-danger btn-xs" onclick="deleteType(${t.id})">Rimuovi</button>
                 </div>
             `).join('');
         }
 
         async function loadPois() {
-            const { data } = await supabaseClient.from('pois').select('*').order('name');
-            poiData = data || [];
+            const { data, error } = await supabaseClient.from('pois').select('*');
+            if (error) return;
+            
+            // FIX ERRORE LOCALECOMPARE: Proteggiamo i nomi nulli
+            poiData = (data || []).sort((a, b) => {
+                const nameA = a.name || "";
+                const nameB = b.name || "";
+                return nameA.localeCompare(nameB);
+            });
+
             poiLayer.clearLayers();
             markers = {};
-            
             const tbody = document.getElementById('poi-table-body');
             const adminList = document.getElementById('admin-poi-list');
             tbody.innerHTML = '';
@@ -256,30 +253,26 @@
                 const tipoObj = tipologie.find(t => t.id == p.type);
                 const color = tipoObj ? tipoObj.colore : '#666';
                 
-                // Marker sulla Mappa
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
-                m.bindPopup(`<b>${p.name}</b><br>${p.note || ''}<br><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')" style="margin-top:5px">Elimina</button>`);
+                m.bindPopup(`<b>${p.name || 'Senza nome'}</b><br>${p.note || ''}<br><button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>`);
                 markers[p.id] = m;
 
-                // Riga Tabella Utente
-                tbody.innerHTML += `<tr><td><b>${p.name}</b><br><small>${tipoObj ? tipoObj.tipo : '-'}</small></td><td style="text-align:right"><button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button></td></tr>`;
+                tbody.innerHTML += `<tr><td><b>${p.name || 'Senza nome'}</b><br><small>${tipoObj ? tipoObj.tipo : '-'}</small></td><td style="text-align:right"><button class="btn btn-primary btn-xs" onclick="zoomTo('${p.id}')">Vai</button></td></tr>`;
 
-                // Card Elenco Admin
                 adminList.innerHTML += `
-                    <div class="poi-admin-card" data-name="${p.name.toLowerCase()}">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
-                            <strong>${p.name}</strong>
+                    <div class="poi-admin-card" data-name="${(p.name || '').toLowerCase()}">
+                        <div style="display:flex; justify-content:space-between;">
+                            <strong>${p.name || 'Senza nome'}</strong>
                             <div>
                                 <button class="btn btn-warning btn-xs" onclick="editPoiPrompt('${p.id}')">✎</button>
                                 <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">X</button>
                             </div>
                         </div>
-                        <div style="font-size:10px; color:#666;">Tipo: ${tipoObj ? tipoObj.tipo : '-'}</div>
                     </div>`;
             });
         }
 
-        // --- FUNZIONI ADMIN ---
+        // --- AZIONI ADMIN ---
         window.filterAdminPois = function() {
             const val = document.getElementById('admin-poi-search').value.toLowerCase();
             document.querySelectorAll('.poi-admin-card').forEach(card => {
@@ -289,11 +282,9 @@
 
         window.editPoiPrompt = async function(id) {
             const p = poiData.find(x => x.id === id);
-            const newName = prompt("Nuovo nome:", p.name);
-            const newNote = prompt("Nuove note:", p.note || "");
+            const newName = prompt("Nuovo nome:", p.name || "");
             if (newName === null) return;
-            
-            const { error } = await supabaseClient.from('pois').update({ name: newName, note: newNote }).eq('id', id);
+            const { error } = await supabaseClient.from('pois').update({ name: newName }).eq('id', id);
             if (error) alert(error.message); else loadPois();
         }
 
@@ -303,36 +294,33 @@
             if (!tipo) return;
             await supabaseClient.from('tipologie').insert([{ tipo, colore }]);
             document.getElementById('new-type-name').value = '';
-            await loadTipologie();
-            await loadPois();
+            await loadTipologie(); await loadPois();
         }
 
         window.deleteType = async function(id) {
-            if (confirm("Eliminare la tipologia?")) {
+            if (confirm("Rimuovere tipologia?")) {
                 await supabaseClient.from('tipologie').delete().eq('id', id);
-                await loadTipologie();
-                await loadPois();
+                await loadTipologie(); await loadPois();
             }
         }
 
-        // --- LOGICA POI ---
+        // --- SALVATAGGIO ---
         async function openActionPopup(lat, lng, preName = '') {
-            let placeName = preName || "Nuovo Punto";
-            const html = `<div style="text-align:center"><strong>${placeName}</strong><br><br><button class="btn btn-primary" onclick="showPoiForm(${lat}, ${lng}, '${placeName.replace(/'/g, "\\'")}')">Salva Punto</button></div>`;
+            const name = preName || "Nuovo Punto";
+            const html = `<div style="text-align:center"><strong>${name}</strong><br><br><button class="btn btn-primary" onclick="showPoiForm(${lat}, ${lng}, '${name.replace(/'/g, "\\'")}')">Salva</button></div>`;
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
         }
 
         window.showPoiForm = function(lat, lng, name) {
-            const options = tipologie.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
-            const formHtml = `
-                <div class="poi-form" style="min-width:180px;">
-                    <input id="f-name" value="${name}">
-                    <select id="f-type">${options}</select>
-                    <textarea id="f-note" placeholder="Note..."></textarea>
-                    <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Salva Ora</button>
-                </div>`;
+            const opts = tipologie.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
+            const html = `<div class="poi-form" style="min-width:180px;">
+                <input id="f-name" value="${name}">
+                <select id="f-type">${opts}</select>
+                <textarea id="f-note" placeholder="Note..."></textarea>
+                <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Salva</button>
+            </div>`;
             map.closePopup();
-            setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(formHtml).openOn(map), 150);
+            setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
         }
 
         window.savePoi = async function(lat, lng) {
@@ -346,29 +334,17 @@
         }
 
         window.deletePoi = async function(id) {
-            if (confirm("Vuoi eliminare definitivamente questo punto?")) {
+            if (confirm("Eliminare definitivamente?")) {
                 await supabaseClient.from('pois').delete().eq('id', id);
                 loadPois();
             }
         }
 
         // --- UTILS ---
-        window.zoomTo = (id) => { 
-            const m = markers[id]; 
-            if (m) { map.setView(m.getLatLng(), 17); m.openPopup(); toggleTable(); } 
-        };
-        window.toggleTable = () => { 
-            const e = document.getElementById('poi-table-wrapper'); 
-            e.style.display = (e.style.display === 'block') ? 'none' : 'block'; 
-        };
-        window.toggleLegend = () => { 
-            const e = document.getElementById('legend'); 
-            e.style.display = (e.style.display === 'block') ? 'none' : 'block'; 
-        };
-        window.toggleAdminPanel = () => { 
-            const e = document.getElementById('admin-panel'); 
-            e.style.display = (e.style.display === 'block') ? 'none' : 'block'; 
-        };
+        window.zoomTo = (id) => { const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); m.openPopup(); } };
+        window.toggleTable = () => { const e = document.getElementById('poi-table-wrapper'); e.style.display = e.style.display==='block' ? 'none' : 'block'; };
+        window.toggleLegend = () => { const e = document.getElementById('legend'); e.style.display = e.style.display==='block' ? 'none' : 'block'; };
+        window.toggleAdminPanel = () => { const e = document.getElementById('admin-panel'); e.style.display = e.style.display==='block' ? 'none' : 'block'; };
     </script>
 </body>
 </html>
