@@ -22,7 +22,7 @@
         #app-container { display: none; height: 100%; width: 100%; position: relative; }
         #map { height: 100%; width: 100%; z-index: 1; }
         
-        /* TOP BAR */
+        /* UI TOP */
         #top-bar { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 4000; }
         .icon-btn { width: 44px; height: 44px; background: white; border-radius: 8px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border: none; }
 
@@ -37,7 +37,7 @@
         #bottom-left { position: absolute; bottom: 20px; left: 15px; z-index: 3000; }
         #bottom-right { position: absolute; bottom: 20px; right: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
 
-        #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 450px; max-width: 90%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 45vh; overflow-y: auto; z-index: 3500; }
+        #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 520px; max-width: 95%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 45vh; overflow-y: auto; z-index: 3500; }
         #legend { position: absolute; bottom: 75px; left: 15px; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500; }
 
         /* BOTTONI */
@@ -46,17 +46,15 @@
         .btn-danger { background: #d32f2f; } 
         .btn-success { background: #388e3c; } 
         .btn-info { background: #0288d1; } 
-        .btn-dark { background: #343a40; color: white; } /* MODIFICA SCURO */
+        .btn-dark { background: #343a40; color: white; }
         .btn-xs { padding: 5px 8px; font-size: 11px; margin-right: 2px; }
 
-        #poi-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        #poi-table td { padding: 8px 4px; border-bottom: 1px solid #eee; }
+        #poi-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        #poi-table th { text-align: left; background: #f8f9fa; padding: 5px; border-bottom: 2px solid #ddd; }
+        #poi-table td { padding: 6px 4px; border-bottom: 1px solid #eee; }
 
         .type-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #999; flex-shrink: 0; }
         
-        /* Dropdown colori admin */
-        #new-type-color { padding: 5px; border-radius: 4px; border: 1px solid #ddd; cursor: pointer; }
-
         @media print {
             .btn-print-hide, .leaflet-control-container, #top-bar, #bottom-left, #bottom-right, #admin-panel { display: none !important; }
             #poi-table-wrapper { display: block !important; position: static !important; width: 100% !important; max-height: none !important; }
@@ -95,16 +93,20 @@
                 <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
                     <input type="text" id="new-type-name" name="new-type-name" autocomplete="off" placeholder="Nome categoria...">
                     <select id="new-type-color" name="new-type-color">
-                        <option value="#1976d2" style="background-color:#1976d2; color:white;">Blu</option>
-                        <option value="#d32f2f" style="background-color:#d32f2f; color:white;">Rosso</option>
-                        <option value="#388e3c" style="background-color:#388e3c; color:white;">Verde</option>
-                        <option value="#ffa000" style="background-color:#ffa000; color:white;">Arancione</option>
-                        <option value="#7b1fa2" style="background-color:#7b1fa2; color:white;">Viola</option>
-                        <option value="#fbc02d" style="background-color:#fbc02d; color:black;">Giallo</option>
-                        <option value="#c2185b" style="background-color:#c2185b; color:white;">Rosa</option>
-                        <option value="#5d4037" style="background-color:#5d4037; color:white;">Marrone</option>
-                        <option value="#212121" style="background-color:#212121; color:white;">Nero</option>
-                        <option value="#757575" style="background-color:#757575; color:white;">Grigio</option>
+                        <option value="#1976d2" style="background:#1976d2; color:white;">Blu</option>
+                        <option value="#d32f2f" style="background:#d32f2f; color:white;">Rosso</option>
+                        <option value="#388e3c" style="background:#388e3c; color:white;">Verde</option>
+                        <option value="#ffa000" style="background:#ffa000; color:white;">Arancione</option>
+                        <option value="#7b1fa2" style="background:#7b1fa2; color:white;">Viola</option>
+                        <option value="#fbc02d" style="background:#fbc02d; color:black;">Giallo</option>
+                        <option value="#00bcd4" style="background:#00bcd4; color:white;">Ciano</option>
+                        <option value="#cddc39" style="background:#cddc39; color:black;">Lime</option>
+                        <option value="#009688" style="background:#009688; color:white;">Verde Acqua</option>
+                        <option value="#3f51b5" style="background:#3f51b5; color:white;">Indaco</option>
+                        <option value="#c2185b" style="background:#c2185b; color:white;">Rosa</option>
+                        <option value="#5d4037" style="background:#5d4037; color:white;">Marrone</option>
+                        <option value="#212121" style="background:#212121; color:white;">Nero</option>
+                        <option value="#757575" style="background:#757575; color:white;">Grigio</option>
                     </select>
                     <button class="btn btn-primary" onclick="window.addType()">Aggiungi Categoria</button>
                 </div>
@@ -122,7 +124,16 @@
 
         <div id="poi-table-wrapper">
             <h4 style="margin:0 0 10px 0;">Elenco Punti</h4>
-            <table id="poi-table"><tbody id="poi-table-body"></tbody></table>
+            <table id="poi-table">
+                <thead>
+                    <tr>
+                        <th>Punto / Tipo</th>
+                        <th>Utente</th>
+                        <th style="text-align:right">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="poi-table-body"></tbody>
+            </table>
         </div>
 
         <div id="legend"><strong>Legenda</strong><div id="legend-content" style="margin-top:8px;"></div></div>
@@ -141,7 +152,6 @@
         const S_URL = 'https://axlvxchttvkpfvyrccfb.supabase.co';
         const S_KEY = 'sb_publishable_okceYdUFp92xfCxMId4JAw_JdybLj0i';
         const ADMIN_EMAIL = 'da.si@live.it';
-        
         const supabaseClient = supabase.createClient(S_URL, S_KEY);
 
         let currentUser = null, isAdmin = false, tipologie = [], poiData = [], map, poiLayer, markers = {}, userLocationMarker = null;
@@ -171,7 +181,6 @@
             window.location.replace(window.location.origin + window.location.pathname);
         };
 
-        // --- AVVIO ---
         document.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
             const guest = localStorage.getItem('poi_guest');
@@ -199,19 +208,13 @@
 
             map.on('locationfound', function(e) {
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
-                userLocationMarker = L.circleMarker(e.latlng, {
-                    radius: 9, color: 'white', fillColor: '#1976d2', fillOpacity: 1, weight: 2
-                }).addTo(map).bindPopup("La tua posizione");
-                map.setView(e.latlng, 15); // Zoom raggio ~1km
+                userLocationMarker = L.circleMarker(e.latlng, { radius: 9, color: 'white', fillColor: '#1976d2', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup("Tua posizione");
+                map.setView(e.latlng, 15);
             });
-
             map.locate({ setView: true, maxZoom: 15 });
 
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
-                .on('markgeocode', e => { 
-                    map.fitBounds(e.geocode.bbox); 
-                    openActionPopup(e.geocode.center.lat, e.geocode.center.lng, e.geocode.name.split(',')[0]); 
-                }).addTo(map);
+                .on('markgeocode', e => { map.fitBounds(e.geocode.bbox); openActionPopup(e.geocode.center.lat, e.geocode.center.lng, e.geocode.name.split(',')[0]); }).addTo(map);
 
             map.on('dblclick', async e => {
                 const temp = L.popup().setLatLng(e.latlng).setContent("<i>Ricerca luogo...</i>").openOn(map);
@@ -237,14 +240,7 @@
         function openActionPopup(lat, lng, name) {
             const safeName = name.replace(/'/g, "\\'");
             const wikiUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
-            const html = `
-                <div style="text-align:center">
-                    <strong>${name}</strong><br><br>
-                    <div style="display:flex; flex-direction:column; gap:6px;">
-                        <button class="btn btn-primary" onclick="window.showPoiForm(${lat}, ${lng}, '${safeName}')">💾 Salva Punto</button>
-                        <button class="btn btn-info" onclick="window.open('${wikiUrl}', '_blank')">📖 Wikipedia</button>
-                    </div>
-                </div>`;
+            const html = `<div style="text-align:center"><strong>${name}</strong><br><br><div style="display:flex; flex-direction:column; gap:6px;"><button class="btn btn-primary" onclick="window.showPoiForm(${lat}, ${lng}, '${safeName}')">💾 Salva Punto</button><button class="btn btn-info" onclick="window.open('${wikiUrl}', '_blank')">📖 Wikipedia</button></div></div>`;
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
         }
 
@@ -254,17 +250,8 @@
             const note = poi ? poi.note : "";
             const type = poi ? poi.type : "";
             const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == type ? 'selected' : ''}>${t.tipo}</option>`).join('');
-            const html = `<div style="min-width:180px;">
-                <label style="font-size:11px;">Nome</label>
-                <input id="f-name" name="poi-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;">
-                <label style="font-size:11px;">Categoria</label>
-                <select id="f-type" name="poi-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select>
-                <label style="font-size:11px;">Note</label>
-                <textarea id="f-note" name="poi-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea>
-                <button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button>
-            </div>`;
-            map.closePopup();
-            setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
+            const html = `<div style="min-width:180px;"><label style="font-size:11px;">Nome</label><input id="f-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;"><label style="font-size:11px;">Categoria</label><select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select><label style="font-size:11px;">Note</label><textarea id="f-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea><button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button></div>`;
+            map.closePopup(); setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
         };
 
         window.savePoi = async function(lat, lng) {
@@ -279,7 +266,7 @@
 
         window.deletePoi = async function(id) { if (confirm("Eliminare definitivamente?")) { await supabaseClient.from('pois').delete().eq('id', id); loadPois(); } };
 
-        // --- ADMIN ---
+        // --- DATI ---
         async function loadTipologie() {
             const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
@@ -317,18 +304,15 @@
                 const t = tipologie.find(x => x.id == p.type);
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: t ? t.colore : '#666', color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
                 
-                let pop = `<b>${p.name}</b><br>${p.note || ''}<br><div style="margin-top:8px; display:flex; gap:3px; flex-wrap:wrap;">`;
-                pop += `<button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button>`;
-                pop += `<button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
+                let pop = `<b>${p.name}</b><br>${p.note || ''}<br><div style="margin-top:8px; display:flex; gap:3px; flex-wrap:wrap;"><button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button><button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
                 if (isAdmin || p.created_by === currentUser.name) {
-                    pop += `<button class="btn btn-dark btn-xs" onclick="window.showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">✎</button>`;
-                    pop += `<button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>`;
+                    pop += `<button class="btn btn-dark btn-xs" onclick="window.showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">✎</button><button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>`;
                 }
-                m.bindPopup(pop + "</div>");
-                markers[p.id] = m;
+                m.bindPopup(pop + "</div>"); markers[p.id] = m;
 
                 tbody.innerHTML += `<tr>
                     <td><b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small></td>
+                    <td>(${p.created_by || 'Anonimo'})</td>
                     <td style="text-align:right; white-space:nowrap;">
                         <button class="btn btn-primary btn-xs" onclick="window.zoomTo('${p.id}')">Vai</button>
                         <button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖</button>
@@ -343,16 +327,13 @@
         window.deleteType = async function(id) { if (confirm("Eliminare categoria?")) { await supabaseClient.from('tipologie').delete().eq('id', id); loadTipologie(); loadPois(); } };
         window.editType = async function(id, n, c) {
             const nn = prompt("Nuovo nome categoria:", n);
-            if (nn) { await supabaseClient.from('tipologie').update({ tipo: nn }).eq('id', id); loadTipologie(); loadPois(); }
+            const nc = prompt("Nuovo colore (es: #ff0000 o Blue). Lascia vuoto per non cambiare:", c);
+            if (nn) { await supabaseClient.from('tipologie').update({ tipo: nn, colore: nc || c }).eq('id', id); loadTipologie(); loadPois(); }
         };
         window.addType = async function() { 
             const tipo = document.getElementById('new-type-name').value;
             const colore = document.getElementById('new-type-color').value;
-            if (tipo) {
-                await supabaseClient.from('tipologie').insert([{ tipo: tipo, colore: colore }]); 
-                document.getElementById('new-type-name').value = '';
-                loadTipologie(); 
-            }
+            if (tipo) { await supabaseClient.from('tipologie').insert([{ tipo, colore }]); document.getElementById('new-type-name').value = ''; loadTipologie(); }
         };
         window.addAccessUser = async function() { await supabaseClient.from('accessi').insert([{ username: document.getElementById('new-access-user').value }]); loadAccessUsers(); };
         window.deleteAccessUser = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('accessi').delete().eq('id', id); loadAccessUsers(); } };
@@ -360,11 +341,7 @@
             const nu = prompt("Nuovo nome ospite:", u);
             if (nu) { await supabaseClient.from('accessi').update({ username: nu }).eq('id', id); loadAccessUsers(); }
         };
-
-        // --- UTILS ---
-        window.zoomTo = (id, edit = false) => { 
-            const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); if (edit) { const p = poiData.find(x => x.id === id); window.showPoiForm(p.lat, p.lng, '', p.id); } else m.openPopup(); } 
-        };
+        window.zoomTo = (id, edit = false) => { const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); if (edit) { const p = poiData.find(x => x.id === id); window.showPoiForm(p.lat, p.lng, '', p.id); } else m.openPopup(); } };
         window.toggleTable = () => { const e = document.getElementById('poi-table-wrapper'); e.style.display = e.style.display==='block'?'none':'block'; };
         window.toggleLegend = () => { const e = document.getElementById('legend'); e.style.display = e.style.display==='block'?'none':'block'; };
         window.toggleAdminPanel = () => { const e = document.getElementById('admin-panel'); e.style.display = e.style.display==='block'?'none':'block'; };
