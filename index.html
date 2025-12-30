@@ -30,7 +30,6 @@
         #map { height: 100%; width: 100%; z-index: 1; }
         
         /* UI Elements */
-        .ui-interactive { pointer-events: auto; }
         #top-bar { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 1000; }
         .icon-btn {
             width: 44px; height: 44px; background: white; border-radius: 8px;
@@ -55,19 +54,23 @@
         .legend-item { display: flex; align-items: center; margin-bottom: 6px; font-size: 13px; }
         .legend-color { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; border: 1px solid rgba(0,0,0,0.2); }
 
-        /* Buttons */
         .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; color: white; font-weight: 500; font-size: 13px; }
         .btn-primary { background: #1976d2; }
         .btn-danger { background: #d32f2f; }
         .btn-success { background: #388e3c; }
         .btn-info { background: #0288d1; }
         .btn-whatsapp { background: #25D366; }
+        .btn-xs { padding: 4px 8px; font-size: 11px; }
 
-        /* Form inside Popup */
-        .poi-form { min-width: 200px; padding: 5px; }
+        .poi-form label { display: block; font-size: 11px; color: #666; margin-bottom: 2px; }
         .poi-form input, .poi-form select, .poi-form textarea { 
             width: 100%; margin-bottom: 10px; padding: 8px; 
             border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit;
+        }
+        
+        @media print {
+            .btn-print-hide, .leaflet-control-container, #top-bar { display: none !important; }
+            #poi-table-wrapper { display: block !important; position: static !important; width: 100% !important; max-height: none !important; }
         }
     </style>
 </head>
@@ -77,7 +80,6 @@
     <div id="login-screen">
         <div class="login-box">
             <h2 style="margin-top:0; color:#1976d2;">Mappa POI</h2>
-            <p style="font-size:13px; color:#666;">Inserisci le credenziali create su Supabase</p>
             <input type="email" id="login-email" placeholder="Email" />
             <input type="password" id="login-pass" placeholder="Password" />
             <button onclick="doLogin()">Accedi</button>
@@ -89,33 +91,29 @@
     <div id="app-container">
         <div id="map"></div>
 
-        <!-- Barra Superiore -->
-        <div id="top-bar" class="ui-interactive">
+        <div id="top-bar">
             <div style="background:white; padding:0 15px; border-radius:8px; display:flex; align-items:center; font-size:13px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);" id="user-display"></div>
-            <button class="icon-btn" onclick="location.reload()" title="Ricarica">↻</button>
-            <button class="icon-btn" onclick="doLogout()" title="Esci">🚪</button>
+            <button class="icon-btn" onclick="location.reload()">↻</button>
+            <button class="icon-btn" onclick="doLogout()">🚪</button>
         </div>
 
-        <!-- Tabella POI -->
-        <div id="poi-table-wrapper" class="ui-interactive">
-            <h4 style="margin:0 0 10px 0;">I tuoi punti salvati</h4>
+        <div id="poi-table-wrapper">
+            <h4 style="margin:0 0 10px 0;">Punti Salvati</h4>
             <table id="poi-table">
                 <thead><tr><th>Nome</th><th>Tipo</th><th>Azione</th></tr></thead>
                 <tbody id="poi-table-body"></tbody>
             </table>
         </div>
 
-        <!-- Legenda -->
-        <div id="legend" class="ui-interactive">
-            <strong style="display:block; margin-bottom:8px;">Legenda</strong>
+        <div id="legend">
+            <strong>Legenda</strong>
             <div id="legend-content"></div>
         </div>
 
-        <!-- Barra Inferiore -->
         <div style="position:absolute; bottom:20px; left:15px; display:flex; gap:8px; z-index:2000;">
-            <button class="btn btn-primary" onclick="toggleTable()">📋 Elenco Punti</button>
-            <button class="btn btn-success" onclick="toggleLegend()">📍 Legenda</button>
-            <button class="btn btn-info" onclick="window.print()">🖨️ Stampa</button>
+            <button class="btn btn-primary btn-print-hide" onclick="toggleTable()">📋 Elenco</button>
+            <button class="btn btn-success btn-print-hide" onclick="toggleLegend()">📍 Legenda</button>
+            <button class="btn btn-info btn-print-hide" onclick="window.print()">🖨️ Stampa</button>
         </div>
     </div>
 
@@ -123,12 +121,12 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
-        // --- CONFIGURAZIONE DATI UTENTE ---
+        // --- CONFIGURAZIONE ---
         const SUPABASE_URL = 'https://axlvxchttvkpfvyrccfb.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_okceYdUFp92xfCxMId4JAw_JdybLj0i';
         
-        // Inizializzazione Client
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Inizializzazione Client con nome univoco per evitare errori Uncaught SyntaxError
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentUser = null;
         let tipologie = [];
@@ -136,30 +134,30 @@
         let map, poiLayer;
         let markers = {};
 
-        // --- GESTIONE ACCESSO ---
+        // --- AUTHENTICATION ---
         async function doLogin() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-pass').value;
-            const btn = document.querySelector('.login-box button');
+            const msg = document.getElementById('login-msg');
             
-            btn.textContent = "Accesso in corso...";
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            msg.textContent = "Verifica...";
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
             if (error) {
-                document.getElementById('login-msg').textContent = "Errore: " + error.message;
-                btn.textContent = "Accedi";
+                msg.textContent = "Errore: " + error.message;
             } else {
                 location.reload();
             }
         }
 
         async function doLogout() {
-            await supabase.auth.signOut();
+            await supabaseClient.auth.signOut();
             location.reload();
         }
 
+        // Controllo sessione all'avvio
         document.addEventListener('DOMContentLoaded', async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentUser = session.user;
                 document.getElementById('login-screen').style.display = 'none';
@@ -169,24 +167,24 @@
             }
         });
 
-        // --- GESTIONE MAPPA ---
+        // --- MAPPA ---
         async function initMap() {
             map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 6);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+                attribution: '&copy; OSM'
             }).addTo(map);
 
             poiLayer = L.layerGroup().addTo(map);
 
-            // Geocoder (Ricerca indirizzi)
-            L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft', placeholder: 'Cerca luogo...' })
+            // Geocoding (Cerca indirizzi)
+            L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
                 .on('markgeocode', function(e) {
                     const r = e.geocode;
                     map.fitBounds(r.bbox);
                     openActionPopup(r.center.lat, r.center.lng, r.name.split(',')[0]);
                 }).addTo(map);
 
-            // Click per aggiungere punto
+            // Doppio click per aggiungere
             map.on('dblclick', (e) => openActionPopup(e.latlng.lat, e.latlng.lng));
 
             await loadTipologie();
@@ -194,7 +192,7 @@
         }
 
         async function loadTipologie() {
-            const { data } = await supabase.from('tipologie').select('*').order('tipo');
+            const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
             tipologie = data || [];
             document.getElementById('legend-content').innerHTML = tipologie.map(t => 
                 `<div class="legend-item"><span class="legend-color" style="background:${t.colore}"></span>${t.tipo}</div>`
@@ -202,10 +200,8 @@
         }
 
         async function loadPois() {
-            const { data, error } = await supabase.from('pois').select('*');
-            if (error) return;
-
-            poiData = data;
+            const { data } = await supabaseClient.from('pois').select('*');
+            poiData = data || [];
             poiLayer.clearLayers();
             markers = {};
             const tbody = document.getElementById('poi-table-body');
@@ -237,11 +233,11 @@
                 <div style="min-width:160px">
                     <strong style="font-size:14px;">${p.name}</strong><br>
                     <small>${tipoObj ? tipoObj.tipo : ''}</small>
-                    <p style="margin:8px 0; font-size:12px;">${p.note || 'Nessuna nota'}</p>
+                    <p style="margin:8px 0; font-size:12px;">${p.note || ''}</p>
                     <div style="display:flex; gap:5px; flex-wrap:wrap;">
                         <button class="btn btn-whatsapp btn-xs" onclick="shareWA('${p.id}')">WA</button>
                         <button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">Wiki</button>
-                        <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">Elimina</button>
+                        <button class="btn btn-danger btn-xs" onclick="deletePoi('${p.id}')">X</button>
                     </div>
                 </div>
             `;
@@ -253,14 +249,13 @@
             if (!placeName) {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
                 const d = await res.json();
-                placeName = d.display_name ? d.display_name.split(',')[0] : 'Punto sulla mappa';
+                placeName = d.display_name ? d.display_name.split(',')[0] : 'Punto';
             }
 
             const html = `
                 <div style="text-align:center; padding:5px;">
                     <strong>${placeName}</strong><br><br>
-                    <button class="btn btn-primary" onclick="showPoiForm(${lat}, ${lng}, '${placeName.replace(/'/g, "\\'")}')">📍 Salva come POI</button><br>
-                    <button class="btn btn-info" style="margin-top:5px" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(placeName)}')">📖 Cerca su Wikipedia</button>
+                    <button class="btn btn-primary" onclick="showPoiForm(${lat}, ${lng}, '${placeName.replace(/'/g, "\\'")}')">📍 Salva POI</button>
                 </div>
             `;
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
@@ -273,7 +268,7 @@
                     <label>Nome</label><input id="f-name" value="${name}">
                     <label>Tipologia</label><select id="f-type">${options}</select>
                     <label>Note</label><textarea id="f-note" rows="2"></textarea>
-                    <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Salva Punto</button>
+                    <button class="btn btn-success" style="width:100%" onclick="savePoi(${lat}, ${lng})">Conferma Salvataggio</button>
                 </div>
             `;
             map.closePopup();
@@ -285,30 +280,30 @@
             const type = document.getElementById('f-type').value;
             const note = document.getElementById('f-note').value;
 
-            const { error } = await supabase.from('pois').insert([{
+            const { error } = await supabaseClient.from('pois').insert([{
                 name, lat, lng, type, note, owner_id: currentUser.id
             }]);
 
-            if (error) alert("Errore nel salvataggio: " + error.message);
+            if (error) alert("Errore: " + error.message);
             else { map.closePopup(); loadPois(); }
         }
 
         window.deletePoi = async function(id) {
             if (!confirm("Vuoi eliminare questo punto?")) return;
-            const { error } = await supabase.from('pois').delete().eq('id', id);
+            const { error } = await supabaseClient.from('pois').delete().eq('id', id);
             if (error) alert("Errore: " + error.message);
             else loadPois();
         }
 
         window.shareWA = function(id) {
             const p = poiData.find(x => x.id === id);
-            const text = `📍 *${p.name}*\n${p.note || ''}\nPosizione: https://www.google.com/maps?q=${p.lat},${p.lng}`;
+            const text = `📍 *${p.name}*\n${p.note || ''}\nhttps://www.google.com/maps?q=${p.lat},${p.lng}`;
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
         }
 
         window.zoomTo = (id) => {
             const m = markers[id];
-            if (m) { map.setView(m.getLatLng(), 16); m.openPopup(); toggleTable(); }
+            if (m) { map.setView(m.getLatLng(), 16); m.openPopup(); }
         }
 
         window.toggleTable = () => {
