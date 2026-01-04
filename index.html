@@ -8,7 +8,6 @@
     <!-- Librerie standard -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; background: #f0f2f5; }
@@ -60,28 +59,11 @@
             @page { size: A4 landscape; margin: 1cm; }
             body, html, #app-container { height: auto !important; overflow: visible !important; background: white !important; }
             #top-bar, #bottom-left, #bottom-right, #admin-panel, #login-screen, .leaflet-control-container, .btn-xs, .btn { display: none !important; }
-            
-            #map { 
-                display: block !important; 
-                position: relative !important; 
-                width: 100% !important; 
-                height: 18cm !important; 
-                border: 2px solid #000; 
-                break-after: page; 
-            }
-            
-            #poi-table-wrapper { 
-                display: block !important; 
-                position: static !important; 
-                width: 100% !important; 
-                max-height: none !important; 
-                box-shadow: none !important; 
-                margin-top: 2cm;
-            }
-            
+            #map { display: block !important; position: relative !important; width: 100% !important; height: 18cm !important; border: 2px solid #000; break-after: page; }
+            #poi-table-wrapper { display: block !important; position: static !important; width: 100% !important; max-height: none !important; box-shadow: none !important; margin-top: 2cm; }
             #poi-table { font-size: 12px; border: 1px solid #000; }
             #poi-table th, #poi-table td { border: 1px solid #000; padding: 8px; color: #000; }
-            #poi-table td:last-child, #poi-table th:last-child { display: none !important; } /* Nasconde colonna azioni */
+            #poi-table td:last-child, #poi-table th:last-child { display: none !important; }
         }
     </style>
 </head>
@@ -107,7 +89,7 @@
         <div id="top-bar">
             <div id="admin-btn-ui" class="icon-btn" onclick="window.toggleAdminPanel()" style="display:none;">⚙️</div>
             <div id="user-display" style="background:white; padding:0 15px; border-radius:8px; display:flex; align-items:center; font-size:12px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,0.1);"></div>
-            <button class="icon-btn" onclick="location.reload()" title="Refresh e centra posizione">↻</button>
+            <button class="icon-btn" onclick="location.reload()" title="Refresh">↻</button>
             <button class="icon-btn" onclick="window.doLogout()">🚪</button>
         </div>
 
@@ -115,22 +97,15 @@
             <div class="admin-section">
                 <h4>Tipologie</h4>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
-                    <input type="text" id="new-type-name" name="new-type" autocomplete="off" placeholder="Nome categoria...">
-                    <select id="new-type-color" name="new-color">
-                        <option value="#1976d2" style="background:#1976d2; color:white;">Blu</option>
-                        <option value="#d32f2f" style="background:#d32f2f; color:white;">Rosso</option>
-                        <option value="#388e3c" style="background:#388e3c; color:white;">Verde</option>
-                        <option value="#ffa000" style="background:#ffa000; color:white;">Arancione</option>
-                        <option value="#7b1fa2" style="background:#7b1fa2; color:white;">Viola</option>
-                        <option value="#fbc02d" style="background:#fbc02d; color:black;">Giallo</option>
-                        <option value="#00bcd4" style="background:#00bcd4; color:white;">Ciano</option>
-                        <option value="#cddc39" style="background:#cddc39; color:black;">Lime</option>
-                        <option value="#009688" style="background:#009688; color:white;">Verde Acqua</option>
-                        <option value="#3f51b5" style="background:#3f51b5; color:white;">Indaco</option>
-                        <option value="#c2185b" style="background:#c2185b; color:white;">Rosa</option>
-                        <option value="#5d4037" style="background:#5d4037; color:white;">Marrone</option>
-                        <option value="#212121" style="background:#212121; color:white;">Nero</option>
-                        <option value="#757575" style="background:#757575; color:white;">Grigio</option>
+                    <input type="text" id="new-type-name" placeholder="Nome categoria...">
+                    <select id="new-type-color">
+                        <option value="#1976d2" style="background:#1976d2;color:white">Blu</option>
+                        <option value="#d32f2f" style="background:#d32f2f;color:white">Rosso</option>
+                        <option value="#388e3c" style="background:#388e3c;color:white">Verde</option>
+                        <option value="#ffa000" style="background:#ffa000;color:white">Arancione</option>
+                        <option value="#7b1fa2" style="background:#7b1fa2;color:white">Viola</option>
+                        <option value="#212121" style="background:#212121;color:white">Nero</option>
+                        <option value="#fbc02d" style="background:#fbc02d;">Giallo</option>
                     </select>
                     <button class="btn btn-primary" onclick="window.addType()">Aggiungi Categoria</button>
                 </div>
@@ -139,7 +114,7 @@
             <div class="admin-section" style="border:none;">
                 <h4>Ospiti Autorizzati</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-access-user" name="new-user" autocomplete="off" placeholder="Nome ospite...">
+                    <input type="text" id="new-access-user" placeholder="Nome ospite...">
                     <button class="btn btn-primary btn-xs" onclick="window.addAccessUser()">+</button>
                 </div>
                 <div id="admin-access-list"></div>
@@ -173,49 +148,57 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
-        const S_URL = 'https://axlvxchttvkpfvyrccfb.supabase.co';
-        const S_KEY = 'sb_publishable_okceYdUFp92xfCxMId4JAw_JdybLj0i';
+        // --- CONFIGURAZIONE ---
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzu_cPkJhvczlZY_DbjPlZ9rlGJeGYv6-kO6ZUpp6V0Inf2pFkiGFC-D-0rBvtxdqyz/exec'; 
         const ADMIN_EMAIL = 'da.si@live.it';
-        const supabaseClient = supabase.createClient(S_URL, S_KEY);
+        const ADMIN_PASS = '140763';
 
         let currentUser = null, isAdmin = false, tipologie = [], poiData = [], map, poiLayer, markers = {}, userLocationMarker = null;
+
+        // --- FUNZIONI API ---
+        async function dbGet(sheet) {
+            const r = await fetch(`${API_URL}?sheet=${sheet}`);
+            return await r.json();
+        }
+        async function dbPost(action, sheet, data = {}, id = null) {
+            const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, sheet, data, id }) });
+            return await r.json();
+        }
 
         // --- AUTH ---
         window.doLogin = async function() {
             const user = document.getElementById('login-user').value.trim();
             const pass = document.getElementById('login-pass').value;
             const msg = document.getElementById('login-msg');
-            msg.textContent = "Verifica...";
-            try {
-                if (pass.length > 0) {
-                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email: user, password: pass });
-                    if (error) throw error;
-                    location.reload();
-                } else {
-                    const { data } = await supabaseClient.from('accessi').select('*').eq('username', user).single();
-                    if (data) { localStorage.setItem('poi_guest', user); location.reload(); }
-                    else throw new Error("Utente non autorizzato.");
-                }
-            } catch (err) { msg.textContent = err.message; }
+            msg.textContent = "Verifica in corso...";
+
+            if (user.toLowerCase() === ADMIN_EMAIL.toLowerCase() && pass === ADMIN_PASS) {
+                localStorage.setItem('poi_user', JSON.stringify({ name: user, role: 'admin' }));
+                location.reload();
+            } else {
+                try {
+                    const accessi = await dbGet('accessi');
+                    if (accessi.find(a => a.username.toLowerCase() === user.toLowerCase())) {
+                        localStorage.setItem('poi_user', JSON.stringify({ name: user, role: 'guest' }));
+                        location.reload();
+                    } else {
+                        msg.textContent = "Utente non autorizzato o credenziali errate.";
+                    }
+                } catch(e) { msg.textContent = "Errore di connessione al database."; }
+            }
         };
 
-        window.doLogout = async function() {
-            await supabaseClient.auth.signOut();
+        window.doLogout = function() {
             localStorage.clear();
-            window.location.replace(window.location.origin + window.location.pathname);
+            location.reload();
         };
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            const guest = localStorage.getItem('poi_guest');
-            if (session) {
-                currentUser = { id: session.user.id, name: session.user.email };
-                isAdmin = (currentUser.name === ADMIN_EMAIL);
-            } else if (guest) {
-                currentUser = { id: guest, name: guest };
-                isAdmin = false;
-            }
-            if (currentUser) {
+            const savedUser = localStorage.getItem('poi_user');
+            if (savedUser) {
+                const u = JSON.parse(savedUser);
+                currentUser = u;
+                isAdmin = (u.role === 'admin');
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
                 document.getElementById('user-display').textContent = currentUser.name;
@@ -226,11 +209,11 @@
 
         // --- MAPPA ---
         async function initMap() {
-            map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 15);
+            map = L.map('map', { doubleClickZoom: false }).setView([42.5, 12.5], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             poiLayer = L.layerGroup().addTo(map);
 
-            map.on('locationfound', function(e) {
+            map.on('locationfound', e => {
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
                 userLocationMarker = L.circleMarker(e.latlng, { radius: 9, color: 'white', fillColor: '#1976d2', fillOpacity: 1, weight: 2 }).addTo(map);
                 map.setView(e.latlng, 15);
@@ -244,7 +227,7 @@
                 }).addTo(map);
 
             map.on('dblclick', async e => {
-                const temp = L.popup().setLatLng(e.latlng).setContent("<i>Ricerca luogo...</i>").openOn(map);
+                const temp = L.popup().setLatLng(e.latlng).setContent("<i>Ricerca nome luogo...</i>").openOn(map);
                 const name = await getPlaceName(e.latlng.lat, e.latlng.lng);
                 openActionPopup(e.latlng.lat, e.latlng.lng, name);
             });
@@ -258,9 +241,7 @@
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'it' } });
                 const d = await res.json();
-                if (!d || !d.address) return "Nuovo Punto";
-                const a = d.address;
-                return d.name || a.amenity || a.historic || a.tourism || (a.road ? (a.house_number ? a.road + ", " + a.house_number : a.road) : "Nuovo Punto");
+                return d.name || d.address.road || "Nuovo Punto";
             } catch (e) { return "Nuovo Punto"; }
         }
 
@@ -273,57 +254,57 @@
 
         // --- GESTIONE POI ---
         window.showPoiForm = function(lat, lng, name, id = null) {
-            const poi = id ? poiData.find(p => p.id === id) : null;
+            const poi = id ? poiData.find(p => p.id == id) : null;
             const n = poi ? poi.name : name;
             const note = poi ? poi.note : "";
             const type = poi ? poi.type : "";
             const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == type ? 'selected' : ''}>${t.tipo}</option>`).join('');
-            const html = `<div style="min-width:180px;"><label style="font-size:11px;">Nome</label><input id="f-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;"><label style="font-size:11px;">Categoria</label><select id="f-type">${opts}</select><label style="font-size:11px;">Note</label><textarea id="f-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea><button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button></div>`;
+            const html = `<div style="min-width:180px;"><label style="font-size:11px;">Nome</label><input id="f-name" value="${n}" style="width:100%;margin-bottom:5px;"><label style="font-size:11px;">Categoria</label><select id="f-type" style="width:100%;margin-bottom:5px;">${opts}</select><label style="font-size:11px;">Note</label><textarea id="f-note" style="width:100%;margin-bottom:8px;">${note}</textarea><button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button></div>`;
             map.closePopup(); setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
         };
 
         window.savePoi = async function(lat, lng) {
-            await supabaseClient.from('pois').insert([{ name: document.getElementById('f-name').value, type: document.getElementById('f-type').value, note: document.getElementById('f-note').value, lat, lng, created_by: currentUser.name }]);
+            const data = { name: document.getElementById('f-name').value, type: document.getElementById('f-type').value, note: document.getElementById('f-note').value, lat, lng, created_by: currentUser.name };
+            await dbPost('insert', 'pois', data);
             map.closePopup(); loadPois();
         };
 
         window.updatePoi = async function(id) {
-            await supabaseClient.from('pois').update({ name: document.getElementById('f-name').value, type: document.getElementById('f-type').value, note: document.getElementById('f-note').value }).eq('id', id);
+            const data = { name: document.getElementById('f-name').value, type: document.getElementById('f-type').value, note: document.getElementById('f-note').value };
+            await dbPost('update', 'pois', data, id);
             map.closePopup(); loadPois();
         };
 
-        window.deletePoi = async function(id) { if (confirm("Eliminare definitivamente?")) { await supabaseClient.from('pois').delete().eq('id', id); loadPois(); } };
+        window.deletePoi = async function(id) { 
+            if (confirm("Eliminare definitivamente questo punto?")) { await dbPost('delete', 'pois', {}, id); loadPois(); } 
+        };
 
         // --- DATI ---
         async function loadTipologie() {
-            const { data } = await supabaseClient.from('tipologie').select('*').order('tipo');
-            tipologie = data || [];
+            tipologie = await dbGet('tipologie');
             document.getElementById('legend-content').innerHTML = tipologie.map(t => `<div style="font-size:13px; margin-bottom:4px;"><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</div>`).join('');
             if (isAdmin) {
                 document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `
                     <div class="admin-list-item">
-                        <button class="btn btn-danger btn-xs" onclick="window.deleteType(${t.id})">X</button>
-                        <button class="btn btn-dark btn-xs" onclick="window.editType(${t.id}, '${t.tipo}', '${t.colore}')">✎</button>
+                        <button class="btn btn-danger btn-xs" onclick="window.deleteType('${t.id}')">X</button>
                         <div class="admin-list-text"><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</div>
                     </div>`).join('');
             }
         }
 
         async function loadAccessUsers() {
-            const { data } = await supabaseClient.from('accessi').select('*').order('username');
-            document.getElementById('admin-access-list').innerHTML = (data || []).map(u => `
+            const data = await dbGet('accessi');
+            document.getElementById('admin-access-list').innerHTML = data.map(u => `
                 <div class="admin-list-item">
-                    <button class="btn btn-danger btn-xs" onclick="window.deleteAccessUser(${u.id})">X</button>
-                    <button class="btn btn-dark btn-xs" onclick="window.editAccessUser(${u.id}, '${u.username}')">✎</button>
+                    <button class="btn btn-danger btn-xs" onclick="window.deleteAccessUser('${u.id}')">X</button>
                     <div class="admin-list-text">👤 ${u.username}</div>
                 </div>`).join('');
         }
 
         async function loadPois() {
-            let q = supabaseClient.from('pois').select('*');
-            if (!isAdmin) q = q.eq('created_by', currentUser.name);
-            const { data } = await q.order('name');
-            poiData = data || [];
+            let data = await dbGet('pois');
+            if (!isAdmin) data = data.filter(p => p.created_by.toLowerCase() === currentUser.name.toLowerCase());
+            poiData = data;
             poiLayer.clearLayers();
             const tbody = document.getElementById('poi-table-body');
             tbody.innerHTML = '';
@@ -331,55 +312,46 @@
             poiData.forEach(p => {
                 const t = tipologie.find(x => x.id == p.type);
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: t ? t.colore : '#666', color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
-                let pop = `<b>${p.name}</b><br>${p.note || ''}<br><div style="margin-top:8px; display:flex; gap:3px; flex-wrap:wrap;"><button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button><button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
+                
+                let pop = `<b>${p.name}</b><br>${p.note || ''}<br><div style="margin-top:8px; display:flex; gap:3px;">`;
+                pop += `<button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button>`;
+                pop += `<button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
                 if (isAdmin || p.created_by === currentUser.name) {
-                    pop += `<button class="btn btn-dark btn-xs" onclick="window.showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">✎</button><button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>`;
+                    pop += `<button class="btn btn-dark btn-xs" onclick="window.showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">✎</button>`;
+                    pop += `<button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>`;
                 }
                 m.bindPopup(pop + "</div>"); markers[p.id] = m;
 
                 tbody.innerHTML += `<tr>
                     <td><b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small></td>
-                    <td>(${p.created_by || 'Anon'})</td>
+                    <td>(${p.created_by})</td>
                     <td style="text-align:right; white-space:nowrap;">
                         <button class="btn btn-primary btn-xs" onclick="window.zoomTo('${p.id}')">Vai</button>
-                        <button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖</button>
-                        <button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️</button>
-                        <button class="btn btn-dark btn-xs" onclick="window.zoomTo('${p.id}', true)">✎</button>
                         <button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>
                     </td>
                 </tr>`;
             });
         }
 
-        // --- ADMIN ACTIONS ---
-        window.deleteType = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('tipologie').delete().eq('id', id); loadTipologie(); loadPois(); } };
-        window.editType = async function(id, n, c) {
-            const nn = prompt("Nuovo nome:", n), nc = prompt("Nuovo colore (es: #ff0000 o Blue):", c);
-            if (nn) { await supabaseClient.from('tipologie').update({ tipo: nn, colore: nc || c }).eq('id', id); loadTipologie(); loadPois(); }
+        // --- AZIONI ADMIN ---
+        window.addType = async function() {
+            const data = { tipo: document.getElementById('new-type-name').value, colore: document.getElementById('new-type-color').value };
+            await dbPost('insert', 'tipologie', data);
+            loadTipologie();
         };
-        window.addType = async function() { await supabaseClient.from('tipologie').insert([{ tipo: document.getElementById('new-type-name').value, colore: document.getElementById('new-type-color').value }]); loadTipologie(); };
-        window.addAccessUser = async function() { await supabaseClient.from('accessi').insert([{ username: document.getElementById('new-access-user').value }]); loadAccessUsers(); };
-        window.deleteAccessUser = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('accessi').delete().eq('id', id); loadAccessUsers(); } };
-        window.editAccessUser = async function(id, u) {
-            const nu = prompt("Nuovo nome:", u);
-            if (nu) { await supabaseClient.from('accessi').update({ username: nu }).eq('id', id); loadAccessUsers(); }
+        window.deleteType = async function(id) { if(confirm("Eliminare questa categoria?")) { await dbPost('delete', 'tipologie', {}, id); loadTipologie(); } };
+        window.addAccessUser = async function() {
+            await dbPost('insert', 'accessi', { username: document.getElementById('new-access-user').value });
+            loadAccessUsers();
         };
+        window.deleteAccessUser = async function(id) { if(confirm("Revocare accesso a questo utente?")) { await dbPost('delete', 'accessi', {}, id); loadAccessUsers(); } };
 
-        // --- STAMPA E UTILS ---
-        window.printPois = function() {
-            const listWasVisible = (document.getElementById('poi-table-wrapper').style.display === 'block');
-            document.getElementById('poi-table-wrapper').style.display = 'block'; // Forza visibilità per stampa
-            map.invalidateSize();
-            setTimeout(() => {
-                window.print();
-                if (!listWasVisible) document.getElementById('poi-table-wrapper').style.display = 'none';
-            }, 500);
-        };
-
-        window.zoomTo = (id, edit = false) => { const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); if (edit) { const p = poiData.find(x => x.id === id); window.showPoiForm(p.lat, p.lng, '', p.id); } else m.openPopup(); } };
+        // --- UTILS ---
+        window.zoomTo = (id) => { const m = markers[id]; if(m){ map.setView(m.getLatLng(), 17); m.openPopup(); } };
         window.toggleTable = () => { const e = document.getElementById('poi-table-wrapper'); e.style.display = e.style.display==='block'?'none':'block'; };
         window.toggleLegend = () => { const e = document.getElementById('legend'); e.style.display = e.style.display==='block'?'none':'block'; };
         window.toggleAdminPanel = () => { const e = document.getElementById('admin-panel'); e.style.display = e.style.display==='block'?'none':'block'; };
+        window.printPois = () => { window.print(); };
     </script>
 </body>
 </html>

@@ -37,7 +37,7 @@
         #bottom-left { position: absolute; bottom: 20px; left: 15px; z-index: 3000; }
         #bottom-right { position: absolute; bottom: 20px; right: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 3000; }
 
-        #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 520px; max-width: 95%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 45vh; overflow-y: auto; z-index: 3500; }
+        #poi-table-wrapper { position: absolute; bottom: 130px; right: 15px; width: 550px; max-width: 95%; background: white; border-radius: 10px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; max-height: 45vh; overflow-y: auto; z-index: 3500; }
         #legend { position: absolute; bottom: 75px; left: 15px; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); display: none; z-index: 3500; }
 
         /* BOTTONI */
@@ -49,15 +49,39 @@
         .btn-dark { background: #343a40; color: white; }
         .btn-xs { padding: 5px 8px; font-size: 11px; margin-right: 2px; }
 
-        #poi-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        #poi-table th { text-align: left; background: #f8f9fa; padding: 5px; border-bottom: 2px solid #ddd; }
-        #poi-table td { padding: 6px 4px; border-bottom: 1px solid #eee; }
+        #poi-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        #poi-table th { text-align: left; background: #f8f9fa; padding: 8px; border-bottom: 2px solid #ddd; }
+        #poi-table td { padding: 8px 4px; border-bottom: 1px solid #eee; }
 
         .type-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #999; flex-shrink: 0; }
         
+        /* --- STILE STAMPA --- */
         @media print {
-            .btn-print-hide, .leaflet-control-container, #top-bar, #bottom-left, #bottom-right, #admin-panel { display: none !important; }
-            #poi-table-wrapper { display: block !important; position: static !important; width: 100% !important; max-height: none !important; }
+            @page { size: A4 landscape; margin: 1cm; }
+            body, html, #app-container { height: auto !important; overflow: visible !important; background: white !important; }
+            #top-bar, #bottom-left, #bottom-right, #admin-panel, #login-screen, .leaflet-control-container, .btn-xs, .btn { display: none !important; }
+            
+            #map { 
+                display: block !important; 
+                position: relative !important; 
+                width: 100% !important; 
+                height: 18cm !important; 
+                border: 2px solid #000; 
+                break-after: page; 
+            }
+            
+            #poi-table-wrapper { 
+                display: block !important; 
+                position: static !important; 
+                width: 100% !important; 
+                max-height: none !important; 
+                box-shadow: none !important; 
+                margin-top: 2cm;
+            }
+            
+            #poi-table { font-size: 12px; border: 1px solid #000; }
+            #poi-table th, #poi-table td { border: 1px solid #000; padding: 8px; color: #000; }
+            #poi-table td:last-child, #poi-table th:last-child { display: none !important; } /* Nasconde colonna azioni */
         }
     </style>
 </head>
@@ -67,7 +91,7 @@
     <div id="login-screen">
         <div class="login-box">
             <h2 style="color:#1976d2;">Mappa POI</h2>
-            <form id="login-form" autocomplete="on" onsubmit="window.doLogin(); return false;">
+            <form onsubmit="window.doLogin(); return false;">
                 <input type="text" id="login-user" name="username" autocomplete="username" placeholder="Email o Nome Ospite" required />
                 <input type="password" id="login-pass" name="password" autocomplete="current-password" placeholder="Password (vuota per Ospite)" />
                 <button type="submit">Entra</button>
@@ -91,8 +115,8 @@
             <div class="admin-section">
                 <h4>Tipologie</h4>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
-                    <input type="text" id="new-type-name" name="new-type-name" autocomplete="off" placeholder="Nome categoria...">
-                    <select id="new-type-color" name="new-type-color">
+                    <input type="text" id="new-type-name" name="new-type" autocomplete="off" placeholder="Nome categoria...">
+                    <select id="new-type-color" name="new-color">
                         <option value="#1976d2" style="background:#1976d2; color:white;">Blu</option>
                         <option value="#d32f2f" style="background:#d32f2f; color:white;">Rosso</option>
                         <option value="#388e3c" style="background:#388e3c; color:white;">Verde</option>
@@ -115,7 +139,7 @@
             <div class="admin-section" style="border:none;">
                 <h4>Ospiti Autorizzati</h4>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="new-access-user" name="new-access-user" autocomplete="off" placeholder="Nome ospite...">
+                    <input type="text" id="new-access-user" name="new-user" autocomplete="off" placeholder="Nome ospite...">
                     <button class="btn btn-primary btn-xs" onclick="window.addAccessUser()">+</button>
                 </div>
                 <div id="admin-access-list"></div>
@@ -127,7 +151,7 @@
             <table id="poi-table">
                 <thead>
                     <tr>
-                        <th>Punto / Tipo</th>
+                        <th>Punto / Categoria</th>
                         <th>Utente</th>
                         <th style="text-align:right">Azioni</th>
                     </tr>
@@ -141,7 +165,7 @@
         <div id="bottom-left"><button class="btn btn-success" onclick="window.toggleLegend()">📍 Legenda</button></div>
         <div id="bottom-right">
             <button class="btn btn-primary" onclick="window.toggleTable()">📋 Elenco Punti</button>
-            <button class="btn btn-info" onclick="window.print()">🖨️ Stampa</button>
+            <button class="btn btn-info" onclick="window.printPois()">🖨️ Stampa</button>
         </div>
     </div>
 
@@ -208,13 +232,16 @@
 
             map.on('locationfound', function(e) {
                 if (userLocationMarker) map.removeLayer(userLocationMarker);
-                userLocationMarker = L.circleMarker(e.latlng, { radius: 9, color: 'white', fillColor: '#1976d2', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup("Tua posizione");
+                userLocationMarker = L.circleMarker(e.latlng, { radius: 9, color: 'white', fillColor: '#1976d2', fillOpacity: 1, weight: 2 }).addTo(map);
                 map.setView(e.latlng, 15);
             });
             map.locate({ setView: true, maxZoom: 15 });
 
             L.Control.geocoder({ defaultMarkGeocode: false, position: 'topleft' })
-                .on('markgeocode', e => { map.fitBounds(e.geocode.bbox); openActionPopup(e.geocode.center.lat, e.geocode.center.lng, e.geocode.name.split(',')[0]); }).addTo(map);
+                .on('markgeocode', e => { 
+                    map.fitBounds(e.geocode.bbox); 
+                    openActionPopup(e.geocode.center.lat, e.geocode.center.lng, e.geocode.name.split(',')[0]); 
+                }).addTo(map);
 
             map.on('dblclick', async e => {
                 const temp = L.popup().setLatLng(e.latlng).setContent("<i>Ricerca luogo...</i>").openOn(map);
@@ -244,13 +271,14 @@
             L.popup().setLatLng([lat, lng]).setContent(html).openOn(map);
         }
 
+        // --- GESTIONE POI ---
         window.showPoiForm = function(lat, lng, name, id = null) {
             const poi = id ? poiData.find(p => p.id === id) : null;
             const n = poi ? poi.name : name;
             const note = poi ? poi.note : "";
             const type = poi ? poi.type : "";
             const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == type ? 'selected' : ''}>${t.tipo}</option>`).join('');
-            const html = `<div style="min-width:180px;"><label style="font-size:11px;">Nome</label><input id="f-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;"><label style="font-size:11px;">Categoria</label><select id="f-type" style="width:100%;margin-bottom:5px;padding:5px;">${opts}</select><label style="font-size:11px;">Note</label><textarea id="f-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea><button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button></div>`;
+            const html = `<div style="min-width:180px;"><label style="font-size:11px;">Nome</label><input id="f-name" autocomplete="off" value="${n}" style="width:100%;margin-bottom:5px;padding:5px;"><label style="font-size:11px;">Categoria</label><select id="f-type">${opts}</select><label style="font-size:11px;">Note</label><textarea id="f-note" style="width:100%;margin-bottom:8px;padding:5px;">${note}</textarea><button class="btn btn-success" style="width:100%" onclick="${id ? `window.updatePoi('${id}')` : `window.savePoi(${lat}, ${lng})`}">${id ? 'Aggiorna' : 'Salva'}</button></div>`;
             map.closePopup(); setTimeout(() => L.popup().setLatLng([lat, lng]).setContent(html).openOn(map), 150);
         };
 
@@ -303,7 +331,6 @@
             poiData.forEach(p => {
                 const t = tipologie.find(x => x.id == p.type);
                 const m = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: t ? t.colore : '#666', color: '#fff', weight: 2, fillOpacity: 0.85 }).addTo(poiLayer);
-                
                 let pop = `<b>${p.name}</b><br>${p.note || ''}<br><div style="margin-top:8px; display:flex; gap:3px; flex-wrap:wrap;"><button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖 Wiki</button><button class="btn btn-success btn-xs" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">🗺️ Maps</button>`;
                 if (isAdmin || p.created_by === currentUser.name) {
                     pop += `<button class="btn btn-dark btn-xs" onclick="window.showPoiForm(${p.lat}, ${p.lng}, '', '${p.id}')">✎</button><button class="btn btn-danger btn-xs" onclick="window.deletePoi('${p.id}')">X</button>`;
@@ -312,7 +339,7 @@
 
                 tbody.innerHTML += `<tr>
                     <td><b>${p.name}</b><br><small>${t ? t.tipo : '-'}</small></td>
-                    <td>(${p.created_by || 'Anonimo'})</td>
+                    <td>(${p.created_by || 'Anon'})</td>
                     <td style="text-align:right; white-space:nowrap;">
                         <button class="btn btn-primary btn-xs" onclick="window.zoomTo('${p.id}')">Vai</button>
                         <button class="btn btn-info btn-xs" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}')">📖</button>
@@ -324,23 +351,31 @@
             });
         }
 
-        window.deleteType = async function(id) { if (confirm("Eliminare categoria?")) { await supabaseClient.from('tipologie').delete().eq('id', id); loadTipologie(); loadPois(); } };
+        // --- ADMIN ACTIONS ---
+        window.deleteType = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('tipologie').delete().eq('id', id); loadTipologie(); loadPois(); } };
         window.editType = async function(id, n, c) {
-            const nn = prompt("Nuovo nome categoria:", n);
-            const nc = prompt("Nuovo colore (es: #ff0000 o Blue). Lascia vuoto per non cambiare:", c);
+            const nn = prompt("Nuovo nome:", n), nc = prompt("Nuovo colore (es: #ff0000 o Blue):", c);
             if (nn) { await supabaseClient.from('tipologie').update({ tipo: nn, colore: nc || c }).eq('id', id); loadTipologie(); loadPois(); }
         };
-        window.addType = async function() { 
-            const tipo = document.getElementById('new-type-name').value;
-            const colore = document.getElementById('new-type-color').value;
-            if (tipo) { await supabaseClient.from('tipologie').insert([{ tipo, colore }]); document.getElementById('new-type-name').value = ''; loadTipologie(); }
-        };
+        window.addType = async function() { await supabaseClient.from('tipologie').insert([{ tipo: document.getElementById('new-type-name').value, colore: document.getElementById('new-type-color').value }]); loadTipologie(); };
         window.addAccessUser = async function() { await supabaseClient.from('accessi').insert([{ username: document.getElementById('new-access-user').value }]); loadAccessUsers(); };
         window.deleteAccessUser = async function(id) { if (confirm("Eliminare?")) { await supabaseClient.from('accessi').delete().eq('id', id); loadAccessUsers(); } };
         window.editAccessUser = async function(id, u) {
-            const nu = prompt("Nuovo nome ospite:", u);
+            const nu = prompt("Nuovo nome:", u);
             if (nu) { await supabaseClient.from('accessi').update({ username: nu }).eq('id', id); loadAccessUsers(); }
         };
+
+        // --- STAMPA E UTILS ---
+        window.printPois = function() {
+            const listWasVisible = (document.getElementById('poi-table-wrapper').style.display === 'block');
+            document.getElementById('poi-table-wrapper').style.display = 'block'; // Forza visibilità per stampa
+            map.invalidateSize();
+            setTimeout(() => {
+                window.print();
+                if (!listWasVisible) document.getElementById('poi-table-wrapper').style.display = 'none';
+            }, 500);
+        };
+
         window.zoomTo = (id, edit = false) => { const m = markers[id]; if (m) { map.setView(m.getLatLng(), 17); if (edit) { const p = poiData.find(x => x.id === id); window.showPoiForm(p.lat, p.lng, '', p.id); } else m.openPopup(); } };
         window.toggleTable = () => { const e = document.getElementById('poi-table-wrapper'); e.style.display = e.style.display==='block'?'none':'block'; };
         window.toggleLegend = () => { const e = document.getElementById('legend'); e.style.display = e.style.display==='block'?'none':'block'; };
