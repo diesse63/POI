@@ -3,164 +3,280 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>POI WebApp v3.0 (Turbo)</title>
+    <title>POI Map Pro</title>
 
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ffffff">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --primary: #1976d2;
-            --bg: #f0f2f5;
-            --safe-bottom: env(safe-area-inset-bottom);
+            --primary: #007AFF;
+            --danger: #FF3B30;
+            --success: #34C759;
+            --bg: #F2F2F7;
+            --surface: rgba(255, 255, 255, 0.95);
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
         }
-        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); overflow: hidden; }
 
-        /* Loader meno invasivo (piccolo in alto) per aggiornamenti background */
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            background: var(--bg); overflow: hidden; 
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- LOADER --- */
         #bg-loader {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 9000; font-size: 11px;
-            display: none; align-items: center; gap: 8px; color: var(--primary); font-weight: bold;
+            position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+            background: var(--surface); backdrop-filter: blur(10px);
+            padding: 8px 16px; border-radius: 30px;
+            box-shadow: var(--shadow); z-index: 9000; font-size: 12px;
+            display: none; align-items: center; gap: 8px; color: var(--primary); font-weight: 600;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
         }
-        .mini-spinner { width: 12px; height: 12px; border: 2px solid #ccc; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        .mini-spinner { width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
 
-        #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; justify-content: center; align-items: center; }
-        .login-box { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 85%; max-width: 350px; text-align: center; }
-        .login-box input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; outline: none; }
-        .login-box button { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        /* --- LOGIN --- */
+        #login-screen { position: fixed; inset: 0; background: #fff; z-index: 9999; display: flex; justify-content: center; align-items: center; }
+        .login-box { padding: 40px 30px; width: 85%; max-width: 320px; text-align: center; }
+        .login-box h1 { margin-bottom: 30px; color: #111; font-weight: 800; letter-spacing: -0.5px; }
+        .inp-group { background: #f5f5f7; border-radius: 12px; padding: 5px; margin-bottom: 15px; }
+        .login-box input { width: 100%; padding: 12px; border: none; background: transparent; font-size: 16px; outline: none; text-align: center; }
+        .login-box button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,122,255,0.3); transition: transform 0.1s; }
+        .login-box button:active { transform: scale(0.98); }
 
+        /* --- APP LAYOUT --- */
         #app-container { display: none; height: 100%; width: 100%; flex-direction: column; }
-        #map { flex: 1; width: 100%; z-index: 1; }
+        #map { flex: 1; width: 100%; z-index: 1; outline: none; background: #e5e5e5; }
 
-        #nav-bar {
-            height: calc(65px + var(--safe-bottom)); background: white; display: flex;
-            justify-content: space-around; align-items: center; border-top: 1px solid #ddd;
-            padding-bottom: var(--safe-bottom); z-index: 4000;
+        /* --- TOOLS FLOTTANTI --- */
+        #map-tools { 
+            position: absolute; top: 15px; right: 15px; z-index: 3000; 
+            display: flex; flex-direction: column; gap: 12px; 
         }
-        .nav-item { display: flex; flex-direction: column; align-items: center; color: #666; font-size: 11px; cursor: pointer; border: none; background: none; flex: 1; transition: 0.2s; }
-        .nav-item span { font-size: 24px; margin-bottom: 2px; }
-        .nav-item.active { color: var(--primary); font-weight: bold; }
+        .tool-btn { 
+            width: 48px; height: 48px; 
+            background: var(--surface); backdrop-filter: blur(10px);
+            border-radius: 14px; display: flex; justify-content: center; align-items: center; 
+            box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.5); 
+            font-size: 20px; cursor: pointer; transition: transform 0.2s; color: #333;
+        }
+        .tool-btn:active { transform: scale(0.95); background: #f0f0f0; }
 
+        /* --- NAV BAR SCROLLABILE --- */
+        #nav-bar {
+            height: calc(65px + var(--safe-bottom)); 
+            background: var(--surface);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            
+            /* Flexbox per lo scorrimento */
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; /* Allinea a sinistra per permettere scroll */
+            gap: 15px; /* Spazio tra i bottoni */
+            padding: 10px 20px; /* Padding laterale */
+            padding-bottom: var(--safe-bottom); 
+            
+            z-index: 4000; border-top: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.03);
+            
+            /* Abilita scorrimento orizzontale */
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch; /* Scroll fluido su iOS */
+        }
+
+        /* Nasconde la barra di scorrimento estetica */
+        #nav-bar::-webkit-scrollbar { display: none; }
+
+        .nav-item { 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #999; font-size: 11px; font-weight: 500; cursor: pointer; 
+            border: none; background: none; 
+            
+            /* Importante per lo scroll */
+            flex: 0 0 auto; 
+            min-width: 60px;
+            
+            gap: 4px; transition: 0.2s;
+        }
+        .nav-icon { font-size: 24px; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .nav-item.active { color: var(--primary); font-weight: 600; }
+        .nav-item.active .nav-icon { transform: translateY(-3px); }
+
+        /* --- SHEETS --- */
         .sheet {
             position: fixed; bottom: -100%; left: 0; width: 100%; height: 85%;
-            background: white; border-radius: 25px 25px 0 0; z-index: 5000;
-            transition: bottom 0.3s ease-out; box-shadow: 0 -5px 25px rgba(0,0,0,0.15);
+            background: #fff; border-radius: 24px 24px 0 0; z-index: 5000;
+            transition: bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
             display: flex; flex-direction: column;
         }
         .sheet.open { bottom: 0; }
-        .sheet-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
-        .sheet-header h2 { margin: 0; font-size: 18px; color: var(--primary); }
-        .sheet-content { flex: 1; overflow-y: auto; padding: 15px; }
-
-        .poi-card {
-            background: #fff; border: 1px solid #eee; border-radius: 15px; padding: 12px;
-            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
-        }
-        .poi-info { flex: 1; overflow: hidden; }
-        .poi-name { font-weight: bold; font-size: 15px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .poi-meta { font-size: 11px; color: #888; display: flex; align-items: center; margin-top: 4px; }
-        .type-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; border: 1px solid rgba(0,0,0,0.1); }
-
-        .btn { padding: 10px 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; justify-content: center; }
-        .btn-sm { padding: 6px 12px; font-size: 11px; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-danger { background: #fee2e2; color: #dc2626; }
-        .btn-info { background: #e0f2fe; color: #0369a1; }
-
-        #map-tools { position: absolute; top: 15px; right: 15px; z-index: 3000; display: flex; flex-direction: column; gap: 12px; }
-        .tool-btn { width: 45px; height: 45px; background: white; border-radius: 12px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: none; font-size: 22px; cursor: pointer; }
-
-        /* Search Styles */
-        .search-container { padding: 5px; }
-        .search-box-wrapper {
-            position: relative; display: flex; align-items: center; background: #f0f2f5;
-            border-radius: 12px; padding: 5px 15px; border: 1px solid #ddd;
-        }
-        .search-box-wrapper input { width: 100%; padding: 10px; border: none; background: transparent; font-size: 16px; outline: none; }
-        .search-results { list-style: none; padding: 0; margin-top: 15px; max-height: calc(85vh - 120px); overflow-y: auto; }
-        .search-result-item { background: white; padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; gap: 10px; border-radius: 8px; }
-        .badge-local { background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-right:5px; flex-shrink: 0;}
-        .badge-global { background: #f3e5f5; color: #7b1fa2; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-right:5px; flex-shrink: 0;}
         
+        .sheet::before {
+            content: ''; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+            width: 40px; height: 5px; background: #e0e0e0; border-radius: 3px;
+        }
+
+        .sheet-header { 
+            padding: 25px 20px 15px 20px; display: flex; justify-content: space-between; align-items: center; 
+        }
+        .sheet-header h2 { margin: 0; font-size: 22px; color: #111; font-weight: 700; letter-spacing: -0.5px; }
+        .sheet-content { flex: 1; overflow-y: auto; padding: 0 20px 80px 20px; -webkit-overflow-scrolling: touch; }
+
+        /* --- CARDS & LISTS --- */
+        .poi-card {
+            background: #fff; border: 1px solid #f0f0f0; 
+            border-radius: 16px; padding: 16px; margin-bottom: 12px; 
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            transition: background 0.2s;
+        }
+        .poi-card:active { background: #f9f9f9; }
+        .poi-info { flex: 1; overflow: hidden; margin-right: 10px; }
+        .poi-name { font-weight: 600; font-size: 16px; color: #333; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .poi-meta { font-size: 12px; color: #888; display: flex; align-items: center; margin-top: 4px; font-weight: 500;}
+        .type-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+        /* --- BUTTONS --- */
+        .btn { padding: 8px 16px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; justify-content: center; font-size: 13px; transition: opacity 0.2s;}
+        .btn:active { opacity: 0.7; }
+        .btn-primary { background: var(--primary); color: white; box-shadow: 0 2px 8px rgba(0,122,255,0.2); }
+        .btn-danger { background: rgba(255, 59, 48, 0.1); color: var(--danger); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-info { background: #E5F1FF; color: var(--primary); }
+
+        /* --- SEARCH --- */
+        .search-box-wrapper {
+            position: relative; display: flex; align-items: center; background: #F2F2F7;
+            border-radius: 14px; padding: 8px 15px; 
+        }
+        .search-box-wrapper input { width: 100%; padding: 8px; border: none; background: transparent; font-size: 16px; outline: none; font-weight: 500; }
+        .search-results { list-style: none; padding: 0; margin-top: 20px; }
+        .search-result-item { 
+            background: white; padding: 14px; border-bottom: 1px solid #f5f5f5; 
+            cursor: pointer; display: flex; align-items: center; gap: 12px; border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        .search-icon { font-size: 20px; background: #f5f5f7; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .result-title { font-weight: 600; font-size: 15px; color: #333; }
+        .result-sub { font-size: 12px; color: #888; display: flex; align-items: center; margin-top: 2px;}
+
+        /* --- POPUP MAPPA --- */
+        .leaflet-popup-content-wrapper { border-radius: 16px; box-shadow: 0 4px 25px rgba(0,0,0,0.15); padding: 0; overflow: hidden; }
+        .leaflet-popup-content { margin: 0; width: 220px !important; }
+        .popup-header { background: #f9f9f9; padding: 12px 15px; border-bottom: 1px solid #eee; font-weight: 700; font-size: 15px; text-align: center; }
+        .popup-body { padding: 15px; text-align: center; font-size: 13px; color: #555; }
+        .popup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 15px 15px 15px; }
+
+        .badge { padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 5px; }
+        .badge-local { background: #E5F1FF; color: #007AFF; }
+        .badge-global { background: #F2E5FF; color: #AF52DE; }
+
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="bg-loader"><div class="mini-spinner"></div> Aggiornamento...</div>
+    <div id="bg-loader"><div class="mini-spinner"></div> Sincronizzazione...</div>
 
     <div id="login-screen">
         <div class="login-box">
-            <h1 style="color:var(--primary); margin:0 0 20px 0;">Mappa POI</h1>
-            <input type="text" id="login-user" placeholder="Nome Utente">
-            <input type="password" id="login-pass" placeholder="Password (admin)">
-            <button onclick="window.doLogin()">ACCEDI</button>
+            <h1>Mappa POI</h1>
+            <div class="inp-group"><input type="text" id="login-user" placeholder="Nome Utente"></div>
+            <div class="inp-group"><input type="password" id="login-pass" placeholder="Password (admin)"></div>
+            <button onclick="window.doLogin()">Entra</button>
         </div>
     </div>
 
     <div id="app-container">
         <div id="map-tools">
-            <button class="tool-btn" onclick="window.openSearch()" title="Cerca">🔍</button>
-            <button class="tool-btn" onclick="window.refreshData(true)" title="Aggiorna forzato">↻</button>
-            <button class="tool-btn" onclick="window.locateMe()" title="La mia posizione">📍</button>
-            <button id="admin-tool-btn" class="tool-btn" onclick="window.openSheet('admin-sheet')" style="display:none;">⚙️</button>
+            <button class="tool-btn" onclick="window.refreshData(true)" title="Ricarica Dati">↻</button>
+            <button class="tool-btn" onclick="window.locateMe(true)" title="La mia posizione" style="color: #007AFF;">📍</button>
+            <button id="admin-tool-btn" class="tool-btn" onclick="window.openSheet('admin-sheet')" style="display:none; color: #333;">⚙️</button>
         </div>
 
         <div id="map"></div>
 
         <nav id="nav-bar">
-            <button class="nav-item active" onclick="window.closeAllSheets(); setActiveNav(this)"><span>🗺️</span>Mappa</button>
-            <button class="nav-item" onclick="window.openSheet('list-sheet'); setActiveNav(this)"><span>📋</span>Elenco</button>
-            <button class="nav-item" onclick="window.openSheet('legend-sheet'); setActiveNav(this)"><span>🏷️</span>Legenda</button>
-            <button class="nav-item" onclick="window.doLogout()"><span>🚪</span>Esci</button>
+            <!-- Barra scorrevole senza tasto Mappa -->
+            <button class="nav-item" onclick="window.openSearch(); setActiveNav(this)">
+                <span class="nav-icon">🔍</span>Cerca
+            </button>
+            <button class="nav-item" onclick="window.openSheet('list-sheet'); setActiveNav(this)">
+                <span class="nav-icon">📋</span>Lista
+            </button>
+            <button class="nav-item" onclick="window.openSheet('legend-sheet'); setActiveNav(this)">
+                <span class="nav-icon">🏷️</span>Legenda
+            </button>
+            <button class="nav-item" onclick="window.doLogout()">
+                <span class="nav-icon">🚪</span>Esci
+            </button>
         </nav>
 
         <!-- SHEET ELENCO -->
         <div id="list-sheet" class="sheet">
-            <div class="sheet-header"><h2>Elenco Punti</h2><button class="btn btn-danger btn-sm" onclick="window.closeAllSheets()">Chiudi</button></div>
+            <div class="sheet-header">
+                <h2>I tuoi luoghi</h2>
+                <button class="btn btn-danger btn-sm" onclick="window.closeAllSheets()">Chiudi</button>
+            </div>
             <div id="poi-list-container" class="sheet-content"></div>
         </div>
 
         <!-- SHEET LEGENDA -->
         <div id="legend-sheet" class="sheet">
-            <div class="sheet-header"><h2>Legenda</h2><button class="btn btn-danger btn-sm" onclick="window.closeAllSheets()">Chiudi</button></div>
+            <div class="sheet-header">
+                <h2>Categorie</h2>
+                <button class="btn btn-danger btn-sm" onclick="window.closeAllSheets()">Chiudi</button>
+            </div>
             <div id="legend-content" class="sheet-content"></div>
         </div>
 
         <!-- SHEET RICERCA -->
         <div id="search-sheet" class="sheet">
             <div class="sheet-header"><h2>Cerca</h2><button class="btn btn-danger btn-sm" onclick="window.closeAllSheets()">Chiudi</button></div>
-            <div class="sheet-content" style="padding:15px;">
-                <div class="search-container">
-                    <div class="search-box-wrapper">
-                        <span style="margin-right:8px;">🔍</span>
-                        <input type="search" id="inp-search" placeholder="Cerca POI o indirizzi..." autocomplete="off">
-                    </div>
-                    <ul id="search-results-list" class="search-results">
-                        <div style="text-align:center; color:#999; margin-top:20px; font-size:12px;">Digita per cercare...</div>
-                    </ul>
+            <div class="sheet-content">
+                <div class="search-box-wrapper">
+                    <span style="margin-right:8px; opacity:0.5;">🔍</span>
+                    <input type="search" id="inp-search" placeholder="Cerca POI o indirizzi..." autocomplete="off">
                 </div>
+                <ul id="search-results-list" class="search-results">
+                    <div style="text-align:center; color:#999; margin-top:40px; font-size:13px;">Inizia a digitare...</div>
+                </ul>
             </div>
         </div>
 
         <!-- SHEET ADMIN -->
         <div id="admin-sheet" class="sheet">
-            <div class="sheet-header"><h2>Admin</h2><button class="btn btn-danger btn-sm" onclick="window.closeAllSheets()">Chiudi</button></div>
+            <div class="sheet-header"><h2>Amministrazione</h2><button class="btn btn-danger btn-sm" onclick="window.closeAllSheets()">Chiudi</button></div>
             <div class="sheet-content">
-                <h3>Nuova Categoria</h3>
-                <input type="text" id="new-type-name" style="width:100%; padding:10px; border:1px solid #ddd; margin-bottom:5px;" placeholder="Nome...">
-                <select id="new-type-color" style="width:100%; padding:10px; margin-bottom:10px;">
-                    <option value="#1976d2">Blu</option><option value="#d32f2f">Rosso</option><option value="#388e3c">Verde</option><option value="#ffa000">Arancio</option>
-                </select>
-                <button class="btn btn-primary" style="width:100%" onclick="window.addType()">Aggiungi</button>
-                <div id="admin-type-list" style="margin-top:20px;"></div>
-                <hr>
-                <h3>Accessi</h3>
-                <input type="text" id="new-access-user" style="width:100%; padding:10px; margin-bottom:5px;" placeholder="Username...">
-                <button class="btn btn-primary" style="width:100%" onclick="window.addAccessUser()">Aggiungi</button>
+                <h4 style="margin:10px 0 5px 0; color:#666;">Nuova Categoria</h4>
+                <div style="display:flex; gap:10px; margin-bottom:20px;">
+                    <input type="text" id="new-type-name" style="flex:1; padding:12px; border-radius:12px; border:1px solid #ddd; outline:none;" placeholder="Nome...">
+                    <input type="color" id="new-type-color" style="width:50px; height:45px; border:none; background:none;">
+                </div>
+                <button class="btn btn-primary" style="width:100%" onclick="window.addType()">Aggiungi Categoria</button>
+                
+                <div id="admin-type-list" style="margin-top:25px;"></div>
+                
+                <hr style="margin:25px 0; border:0; border-top:1px solid #eee;">
+                
+                <h4 style="margin:10px 0 5px 0; color:#666;">Utenti Ospiti</h4>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="text" id="new-access-user" style="flex:1; padding:12px; border-radius:12px; border:1px solid #ddd; outline:none;" placeholder="Username...">
+                </div>
+                <button class="btn btn-primary" style="width:100%" onclick="window.addAccessUser()">Autorizza Utente</button>
                 <div id="admin-access-list" style="margin-top:20px;"></div>
             </div>
         </div>
@@ -171,259 +287,207 @@
         const API_URL = 'https://script.google.com/macros/s/AKfycbxiwZj3eRZKEA7ryXN5l_iGc4JdAZferqpgias-SoXzAQ1pISyEvGIKhcLHWMqOyeWR/exec'; 
         const ADMIN_EMAIL = 'da.si@live.it';
         const ADMIN_PASS = '140763';
-        const CACHE_KEY = 'poi_app_data_v1';
+        const CACHE_KEY = 'poi_app_data_v2';
 
         let currentUser = null, isAdmin = false;
         let tipologie = [], poiData = [], accessi = [];
         let map, poiLayer, markers = {}, myLocationMarker = null;
-        
-        // OTTIMIZZAZIONE 1: Renderer Canvas per prestazioni elevate con molti punti
         const canvasRenderer = L.canvas({ padding: 0.5 });
 
         // --- SISTEMA DATI & CACHE ---
-        
         async function initApp() {
-            // 1. Carica IMMEDIATAMENTE dalla cache se esiste
+            const s = localStorage.getItem('poi_user');
+            if (!s) { if(document.getElementById('loader')) document.getElementById('loader').style.display='none'; return; }
+            
+            currentUser = JSON.parse(s); isAdmin = currentUser.role === 'admin';
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            if(isAdmin) document.getElementById('admin-tool-btn').style.display = 'flex';
+
+            initMap();
+
             const cached = localStorage.getItem(CACHE_KEY);
             if (cached) {
                 const data = JSON.parse(cached);
                 processData(data);
-                console.log("Dati caricati da cache locale");
-            } else {
-                // Se non c'è cache, mostra loader fullscreen
-                document.getElementById('login-screen').innerHTML += '<p style="margin-top:10px">Primo avvio...</p>';
             }
-
-            // 2. Scarica aggiornamenti in background (Stale-While-Revalidate)
             await fetchAllData();
         }
 
         async function fetchAllData(force = false) {
             const loader = document.getElementById('bg-loader');
-            if(loader) loader.style.display = 'flex';
-            
+            loader.style.display = 'flex';
             try {
                 const response = await fetch(`${API_URL}?action=fetchAll`);
                 const data = await response.json();
-                
-                // Salva in cache
                 localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-                
-                // Aggiorna la UI
                 processData(data);
-                
-            } catch (e) {
-                console.error("Errore sync background", e);
-            }
-            if(loader) loader.style.display = 'none';
+            } catch (e) { console.error("Sync error", e); }
+            loader.style.display = 'none';
         }
 
         function processData(data) {
             tipologie = data.tipologie || [];
             poiData = data.pois || [];
             accessi = data.accessi || [];
-
-            // OTTIMIZZAZIONE 2: Pre-indicizzazione per ricerca veloce
-            poiData.forEach(p => {
-                p._searchStr = (p.name + " " + (p.note || "")).toLowerCase();
-            });
-
+            poiData.forEach(p => { p._searchStr = (p.name + " " + (p.note || "")).toLowerCase(); });
+            
             if (map) renderMap();
             renderList();
-            renderLegend();
+            renderLegend(); 
             if (isAdmin) renderAdmin();
         }
 
-        // --- MAPPA ---
-
+        // --- MAPPA & GEOLOCALIZZAZIONE ---
         function initMap() {
-            const lastPos = JSON.parse(localStorage.getItem('map_pos') || '{"lat":42.5, "lng":12.5, "zoom":6}');
-            map = L.map('map', { zoomControl: false, doubleClickZoom: false }).setView([lastPos.lat, lastPos.lng], lastPos.zoom);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            const defaultPos = [42.5, 12.5]; 
+            map = L.map('map', { zoomControl: false, doubleClickZoom: false }).setView(defaultPos, 6);
             
-            // Layer Group ottimizzato
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OSM' }).addTo(map);
             poiLayer = L.layerGroup().addTo(map);
-
-            map.locate({ setView: false, maxZoom: 15 });
-
-            map.on('locationfound', e => {
-                if (myLocationMarker) map.removeLayer(myLocationMarker);
-                myLocationMarker = L.circleMarker(e.latlng, { radius: 8, color: 'white', fillColor: '#2196F3', fillOpacity: 1, weight: 2 }).addTo(map);
-            });
 
             map.on('moveend', () => {
                 const center = map.getCenter();
-                localStorage.setItem('map_pos', JSON.stringify({lat: center.lat, lng: center.lng, zoom: map.getZoom()}));
+                localStorage.setItem('map_pos_backup', JSON.stringify({lat: center.lat, lng: center.lng, zoom: map.getZoom()}));
             });
 
             map.on('dblclick', async e => {
                 const name = await getPlaceName(e.latlng.lat, e.latlng.lng);
                 window.showPoiForm(e.latlng.lat, e.latlng.lng, name);
             });
-            
-            // Avvia la logica dati dopo aver creato la mappa
-            initApp();
+
+            map.on('locationfound', e => {
+                if (myLocationMarker) map.removeLayer(myLocationMarker);
+                myLocationMarker = L.circleMarker(e.latlng, { radius: 8, color: '#fff', fillColor: '#007AFF', fillOpacity: 1, weight: 3 }).addTo(map);
+                L.circle(e.latlng, { radius: e.accuracy / 2, color: '#007AFF', weight: 1, opacity: 0.2, fillOpacity: 0.1 }).addTo(map);
+            });
+
+            window.locateMe(true); 
         }
+
+        window.locateMe = (isStartup = false) => {
+            if(!map) return;
+            map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true });
+            
+            map.once('locationerror', () => {
+                if(isStartup) {
+                    const backup = JSON.parse(localStorage.getItem('map_pos_backup'));
+                    if(backup) map.setView([backup.lat, backup.lng], backup.zoom);
+                } else {
+                    alert("Posizione non trovata. Attiva il GPS.");
+                }
+            });
+        };
 
         function renderMap() {
             poiLayer.clearLayers();
             markers = {};
-            
-            // Filtro (admin vede tutto, user vede solo i suoi)
             let filtered = isAdmin ? poiData : poiData.filter(p => p.created_by.toLowerCase() === currentUser.name.toLowerCase());
             
             filtered.forEach(p => {
                 const t = tipologie.find(x => x.id == p.type);
                 const color = t?.colore || '#666';
 
-                // Usiamo il renderer Canvas per performance
-                const m = L.circleMarker([p.lat, p.lng], {
-                    renderer: canvasRenderer, 
-                    radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.85 
-                }).addTo(poiLayer);
+                const m = L.circleMarker([p.lat, p.lng], { renderer: canvasRenderer, radius: 9, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 }).addTo(poiLayer);
                 
-                const safeName = p.name.replace(/'/g, "\\'");
-                let pop = `<div style="text-align:center; min-width:160px;">
-                    <strong>${p.name}</strong><br><span style="font-size:11px">${p.note || ''}</span><hr style="margin:8px 0;">
-                    <div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:center;">
-                    <button class="btn btn-success btn-sm" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">MAPS</button>
-                    <button class="btn btn-info btn-sm" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}','_blank')">WIKI</button>`;
+                let pop = `
+                    <div class="popup-header" style="color:${color}">${p.name}</div>
+                    <div class="popup-body">${p.note || '<i>Nessuna nota</i>'}</div>
+                    <div class="popup-actions">
+                        <button class="btn btn-success" style="width:100%" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">Naviga</button>
+                        <button class="btn btn-info" style="width:100%" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}','_blank')">Info</button>
+                    </div>`;
                 
                 if (isAdmin || p.created_by.toLowerCase() === currentUser.name.toLowerCase()) {
-                    pop += `<button class="btn btn-primary btn-sm" onclick="window.showPoiForm(${p.lat},${p.lng},'','${p.id}')">EDIT</button>`;
+                    pop += `<div style="padding:0 15px 15px 15px;"><button class="btn btn-primary" style="width:100%" onclick="window.showPoiForm(${p.lat},${p.lng},'','${p.id}')">Modifica</button></div>`;
                 }
-                pop += `</div></div>`;
+                
                 m.bindPopup(pop);
                 markers[p.id] = m;
             });
         }
 
-        // --- RICERCA IBRIDA OTTIMIZZATA ---
+        // --- RICERCA IBRIDA ---
         let searchTimeout = null;
-
-        window.openSearch = () => {
-            window.openSheet('search-sheet');
-            setTimeout(()=>document.getElementById('inp-search').focus(), 300);
-        };
-
+        window.openSearch = () => { window.openSheet('search-sheet'); setTimeout(()=>document.getElementById('inp-search').focus(), 300); };
         document.getElementById('inp-search').addEventListener('input', function(e) {
             const query = e.target.value.trim();
             const list = document.getElementById('search-results-list');
-            
             if (searchTimeout) clearTimeout(searchTimeout);
-            
-            if (query.length < 2) {
-                list.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px; font-size:12px;">Digita almeno 2 caratteri...</div>';
-                return;
-            }
-
-            // Ricerca locale immediata (sfruttando l'indice _searchStr)
+            if (query.length < 2) { list.innerHTML = ''; return; }
             const queryLower = query.toLowerCase();
-            const localMatches = poiData.filter(p => p._searchStr && p._searchStr.includes(queryLower)).slice(0, 10); // Limit to 10 local
-
-            renderSearchResults(localMatches, [], true); // Render local immediately (loading state for global)
-
-            // Debounce per ricerca online
+            const localMatches = poiData.filter(p => p._searchStr && p._searchStr.includes(queryLower)).slice(0, 10);
+            renderSearchResults(localMatches, [], true);
             searchTimeout = setTimeout(() => performOnlineSearch(query, localMatches), 400);
         });
 
         async function performOnlineSearch(query, localResults) {
             try {
-                // OTTIMIZZAZIONE 3: Viewbox biasing (Cerca preferibilmente nell'area visibile della mappa)
                 const b = map.getBounds();
                 const viewbox = `${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}`;
-                
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&accept-language=it&viewbox=${viewbox}&bounded=0`;
-                
-                const response = await fetch(url);
-                const onlineData = await response.json();
-                
+                const r = await fetch(url);
+                const onlineData = await r.json();
                 const globalResults = onlineData.map(item => ({
                     type: 'global',
                     name: item.name || item.address.road || "Indirizzo",
                     sub: [item.address.city, item.address.country].filter(Boolean).join(', '),
-                    lat: parseFloat(item.lat),
-                    lng: parseFloat(item.lon)
+                    lat: parseFloat(item.lat), lng: parseFloat(item.lon)
                 }));
-
                 renderSearchResults(localResults, globalResults, false);
-
-            } catch (e) { console.error("Search err", e); }
+            } catch (e) { console.error(e); }
         }
 
         function renderSearchResults(local, global, loadingGlobal) {
             const list = document.getElementById('search-results-list');
             list.innerHTML = '';
-            
-            // Render Local
             local.forEach(p => {
                 const t = tipologie.find(x => x.id == p.type);
-                const li = document.createElement('li');
-                li.className = 'search-result-item';
-                li.innerHTML = `<span style="font-size:18px">⭐</span><div class="result-details"><span class="result-title">${p.name}</span><span class="result-sub"><span class="badge-local">POI</span> ${t?.tipo||'Punto'}</span></div>`;
+                const li = document.createElement('li'); li.className = 'search-result-item';
+                li.innerHTML = `<div class="search-icon">⭐</div><div class="result-details"><div class="result-title">${p.name}</div><div class="result-sub"><span class="badge badge-local">POI</span> ${t?.tipo||''}</div></div>`;
                 li.onclick = () => window.zoomTo(p.id);
                 list.appendChild(li);
             });
-
-            // Render Global
             global.forEach(res => {
-                const li = document.createElement('li');
-                li.className = 'search-result-item';
-                li.innerHTML = `<span style="font-size:18px">🌍</span><div class="result-details"><span class="result-title">${res.name}</span><span class="result-sub"><span class="badge-global">WEB</span> ${res.sub}</span></div>`;
+                const li = document.createElement('li'); li.className = 'search-result-item';
+                li.innerHTML = `<div class="search-icon">🌍</div><div class="result-details"><div class="result-title">${res.name}</div><div class="result-sub"><span class="badge badge-global">WEB</span> ${res.sub}</div></div>`;
                 li.onclick = () => {
-                    window.closeAllSheets();
-                    map.setView([res.lat, res.lng], 17);
+                    window.closeAllSheets(); map.setView([res.lat, res.lng], 17);
                     const safeName = res.name.replace(/'/g, "\\'");
-                    L.popup().setLatLng([res.lat, res.lng])
-                     .setContent(`<b>${res.name}</b><br>${res.sub}<br><button class="btn btn-primary btn-sm" onclick="window.showPoiForm(${res.lat},${res.lng}, '${safeName}')" style="margin-top:8px; width:100%">SALVA QUI</button>`)
-                     .openOn(map);
+                    L.popup().setLatLng([res.lat, res.lng]).setContent(`
+                        <div class="popup-header">${res.name}</div>
+                        <div class="popup-body">${res.sub}</div>
+                        <div style="padding:15px"><button class="btn btn-primary" style="width:100%" onclick="window.showPoiForm(${res.lat},${res.lng}, '${safeName}')">Salva Luogo</button></div>
+                    `).openOn(map);
                 };
                 list.appendChild(li);
             });
-
-            if(loadingGlobal) {
-                list.innerHTML += `<div style="text-align:center; padding:10px; color:#999; font-size:11px;">Cercando online...</div>`;
-            } else if (local.length === 0 && global.length === 0) {
-                list.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">Nessun risultato.</div>';
-            }
+            if(loadingGlobal && global.length === 0) list.innerHTML += `<div style="text-align:center; padding:20px; color:#ccc;">Cercando online...</div>`;
         }
 
-        // --- GESTIONE UTILITY ---
-        
-        async function getPlaceName(lat, lng) {
-            try { return (await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)).json()).name || "Nuovo Punto"; } catch(e){return "Nuovo Punto";}
-        }
-
-        window.zoomTo = (id) => {
-            const m = markers[id];
-            if(m) { window.closeAllSheets(); map.setView(m.getLatLng(), 17); setTimeout(()=>m.openPopup(), 300); }
-        };
-
+        // --- GESTIONE SCHEDE & MODAL ---
         window.showPoiForm = (lat, lng, name, id = null) => {
             const poi = id ? poiData.find(p => p.id == id) : null;
             const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == poi?.type ? 'selected' : ''}>${t.tipo}</option>`).join('');
             const content = `
-                <div style="min-width:220px; padding:5px;">
-                    <h3>${id?'Modifica':'Nuovo'}</h3>
-                    <input id="f-name" value="${poi?.name||name}" style="width:100%;margin-bottom:8px;padding:8px;border:1px solid #ddd;border-radius:6px;">
-                    <select id="f-type" style="width:100%;margin-bottom:8px;padding:8px;border:1px solid #ddd;border-radius:6px;">${opts}</select>
-                    <textarea id="f-note" placeholder="Note..." style="width:100%;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;height:50px;">${poi?.note||''}</textarea>
-                    <button class="btn btn-primary" style="width:100%" onclick="${id?`window.updatePoi('${id}')`:`window.savePoi(${lat},${lng})`}">${id?'SALVA':'AGGIUNGI'}</button>
+                <div style="width:240px; padding:10px 0;">
+                    <h3 style="margin:0 0 15px 0; text-align:center;">${id?'Modifica Luogo':'Nuovo Luogo'}</h3>
+                    <input id="f-name" value="${poi?.name||name}" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:10px; font-family:inherit;" placeholder="Nome luogo">
+                    <select id="f-type" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:10px; background:#fff;">${opts}</select>
+                    <textarea id="f-note" placeholder="Note aggiuntive..." style="width:100%; box-sizing:border-box; padding:10px; border:1px solid #ddd; border-radius:8px; height:60px; font-family:inherit; margin-bottom:15px;">${poi?.note||''}</textarea>
+                    <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="${id?`window.updatePoi('${id}')`:`window.savePoi(${lat},${lng})`}">${id?'SALVA MODIFICHE':'AGGIUNGI LUOGO'}</button>
                 </div>`;
             L.popup().setLatLng([lat, lng]).setContent(content).openOn(map);
         };
 
-        // DB ACTIONS (Sync ottimistico)
+        // --- AZIONI DATABASE ---
         async function dbAction(action, sheet, data, id = null) {
-            // Aggiornamento ottimistico: ricarica subito dal server per sicurezza (o implementare logica locale complessa)
-            // Per ora mostriamo loader piccolo
             const loader = document.getElementById('bg-loader');
             loader.style.display = 'flex'; loader.innerHTML = '<div class="mini-spinner"></div> Salvataggio...';
-            
             try {
                 await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, sheet, data, id }) });
-                await fetchAllData(true); // Ricarica e aggiorna cache
-            } catch(e) { alert("Errore connessione"); }
+                await fetchAllData(true);
+            } catch(e) { alert("Errore di rete. Riprova."); }
             loader.style.display = 'none'; loader.innerHTML = '<div class="mini-spinner"></div> Aggiornamento...';
         }
 
@@ -435,50 +499,51 @@
             dbAction('update', 'pois', { name: document.getElementById('f-name').value, type: document.getElementById('f-type').value, note: document.getElementById('f-note').value }, id);
             map.closePopup();
         };
-        window.deletePoi = (id) => { if(confirm("Eliminare?")) dbAction('delete', 'pois', {}, id); };
+        window.deletePoi = (id) => { if(confirm("Sei sicuro di voler eliminare questo punto?")) dbAction('delete', 'pois', {}, id); };
 
-        // UI Helpers
+        // --- UTILITY UI ---
         window.openSheet = (id) => { document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open')); document.getElementById(id).classList.add('open'); };
-        window.closeAllSheets = () => { document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open')); document.querySelector('.nav-item.active')?.classList.remove('active'); document.querySelectorAll('.nav-item')[0].classList.add('active'); };
+        window.closeAllSheets = () => { 
+            document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open')); 
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            // Nessun tasto attivo quando si torna alla mappa
+        };
         window.setActiveNav = (el) => { document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); el.classList.add('active'); };
-        window.locateMe = () => map.locate({setView: true, maxZoom: 16});
+        window.zoomTo = (id) => { const m = markers[id]; if(m) { window.closeAllSheets(); map.setView(m.getLatLng(), 17); setTimeout(()=>m.openPopup(), 400); } };
         window.refreshData = () => fetchAllData(true);
+        async function getPlaceName(lat, lng) { try { return (await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)).json()).name || "Posizione selezionata"; } catch{return "Posizione selezionata";} }
 
         function renderList() {
              let filtered = isAdmin ? poiData : poiData.filter(p => p.created_by.toLowerCase() === currentUser.name.toLowerCase());
-             document.getElementById('poi-list-container').innerHTML = filtered.map(p => {
+             document.getElementById('poi-list-container').innerHTML = filtered.length ? filtered.map(p => {
                 const t = tipologie.find(x => x.id == p.type);
-                return `<div class="poi-card"><div class="poi-info"><span class="poi-name">${p.name}</span><div class="poi-meta"><span class="type-dot" style="background:${t?.colore}"></span>${t?.tipo}</div></div><div style="display:flex;gap:5px"><button class="btn btn-primary btn-sm" onclick="window.zoomTo('${p.id}')">VAI</button><button class="btn btn-danger btn-sm" onclick="window.deletePoi('${p.id}')">X</button></div></div>`;
-             }).join('');
+                return `<div class="poi-card" onclick="window.zoomTo('${p.id}')"><div class="poi-info"><span class="poi-name">${p.name}</span><div class="poi-meta"><span class="type-dot" style="background:${t?.colore}"></span>${t?.tipo}</div></div><button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); window.deletePoi('${p.id}')">Elimina</button></div>`;
+             }).join('') : '<div style="text-align:center; margin-top:40px; color:#999;">Nessun punto salvato.</div>';
         }
-        function renderLegend() { document.getElementById('legend-content').innerHTML = tipologie.map(t => `<div class="poi-card"><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</div>`).join(''); }
+        function renderLegend() {
+            document.getElementById('legend-content').innerHTML = tipologie.map(t => `<div class="poi-card" style="padding:12px;"><span style="font-weight:500;"><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</span></div>`).join('');
+        }
         function renderAdmin() {
-            document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `<div class="poi-card"><span><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</span><button class="btn btn-danger btn-sm" onclick="window.dbAction('delete','tipologie',{},'${t.id}')">X</button></div>`).join('');
-            document.getElementById('admin-access-list').innerHTML = accessi.map(a => `<div class="poi-card"><span>👤 ${a.username}</span><button class="btn btn-danger btn-sm" onclick="window.dbAction('delete','accessi',{},'${a.id}')">X</button></div>`).join('');
+            document.getElementById('admin-type-list').innerHTML = tipologie.map(t => `<div class="poi-card" style="padding:10px;"><span><span class="type-dot" style="background:${t.colore}"></span>${t.tipo}</span><button class="btn btn-danger btn-sm" onclick="window.dbAction('delete','tipologie',{},'${t.id}')">X</button></div>`).join('');
+            document.getElementById('admin-access-list').innerHTML = accessi.map(a => `<div class="poi-card" style="padding:10px;"><span>👤 ${a.username}</span><button class="btn btn-danger btn-sm" onclick="window.dbAction('delete','accessi',{},'${a.id}')">X</button></div>`).join('');
         }
         window.addType = () => dbAction('insert', 'tipologie', {tipo: document.getElementById('new-type-name').value, colore: document.getElementById('new-type-color').value});
         window.addAccessUser = () => dbAction('insert', 'accessi', {username: document.getElementById('new-access-user').value});
 
-        // LOGIN
         window.doLogin = async () => {
-            const u = document.getElementById('login-user').value.trim(), p = document.getElementById('login-pass').value;
-            if (u.toLowerCase()===ADMIN_EMAIL && p===ADMIN_PASS) { saveUser(u,'admin'); return; }
-            const r = await fetch(`${API_URL}?sheet=accessi`); const d = await r.json();
-            if (d.find(a => a.username.toLowerCase() === u.toLowerCase())) saveUser(u,'guest'); else alert("Non autorizzato");
+            const u = document.getElementById('login-user').value.trim();
+            const p = document.getElementById('login-pass').value;
+            if (u.toLowerCase() === ADMIN_EMAIL && p === ADMIN_PASS) { saveUser(u, 'admin'); return; }
+            try {
+                const r = await fetch(`${API_URL}?sheet=accessi`); const d = await r.json();
+                if (d.find(a => a.username.toLowerCase() === u.toLowerCase())) { saveUser(u, 'guest'); } else { alert("Utente non autorizzato."); }
+            } catch(e) { alert("Errore login. Controlla connessione."); }
         };
+
         function saveUser(n, r) { localStorage.setItem('poi_user', JSON.stringify({name:n, role:r})); location.reload(); }
         window.doLogout = () => { localStorage.removeItem('poi_user'); localStorage.removeItem(CACHE_KEY); location.reload(); };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const s = localStorage.getItem('poi_user');
-            if (s) {
-                currentUser = JSON.parse(s); isAdmin = currentUser.role === 'admin';
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('app-container').style.display = 'flex';
-                if(isAdmin) document.getElementById('admin-tool-btn').style.display = 'flex';
-                initMap();
-            }
-        });
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
