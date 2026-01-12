@@ -52,62 +52,33 @@
         .login-box h1 { margin-bottom: 30px; color: #111; font-weight: 800; letter-spacing: -0.5px; }
         .inp-group { background: #f5f5f7; border-radius: 12px; padding: 5px; margin-bottom: 15px; }
         .login-box input { width: 100%; padding: 12px; border: none; background: transparent; font-size: 16px; outline: none; text-align: center; }
-        .login-box button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,122,255,0.3); transition: transform 0.1s; }
+        .login-box button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,122,255,0.3); transition: transform 0.1s, opacity 0.2s; }
         .login-box button:active { transform: scale(0.98); }
+        .login-box button:disabled { background: #ccc; transform: none; box-shadow: none; cursor: not-allowed; }
 
         /* --- APP LAYOUT --- */
         #app-container { display: none; height: 100%; width: 100%; flex-direction: column; }
         #map { flex: 1; width: 100%; z-index: 1; outline: none; background: #e5e5e5; }
 
         /* --- TOOLS FLOTTANTI --- */
-        #map-tools { 
-            position: absolute; top: 15px; right: 15px; z-index: 3000; 
-            display: flex; flex-direction: column; gap: 12px; 
-        }
-        .tool-btn { 
-            width: 48px; height: 48px; 
-            background: var(--surface); backdrop-filter: blur(10px);
-            border-radius: 14px; display: flex; justify-content: center; align-items: center; 
-            box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.5); 
-            font-size: 20px; cursor: pointer; transition: transform 0.2s; color: #333;
-        }
+        #map-tools { position: absolute; top: 15px; right: 15px; z-index: 3000; display: flex; flex-direction: column; gap: 12px; }
+        .tool-btn { width: 48px; height: 48px; background: var(--surface); backdrop-filter: blur(10px); border-radius: 14px; display: flex; justify-content: center; align-items: center; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.5); font-size: 20px; cursor: pointer; transition: transform 0.2s; color: #333; }
         .tool-btn:active { transform: scale(0.95); background: #f0f0f0; }
 
-        /* --- NAV BAR SCROLLABILE --- */
+        /* --- NAV BAR --- */
         #nav-bar {
-            height: calc(65px + var(--safe-bottom)); 
-            background: var(--surface);
+            height: calc(65px + var(--safe-bottom)); background: var(--surface);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            
-            /* Flexbox per lo scorrimento */
-            display: flex;
-            align-items: center;
-            justify-content: flex-start; /* Allinea a sinistra per permettere scroll */
-            gap: 15px; /* Spazio tra i bottoni */
-            padding: 10px 20px; /* Padding laterale */
-            padding-bottom: var(--safe-bottom); 
-            
-            z-index: 4000; border-top: 1px solid rgba(0,0,0,0.05);
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.03);
-            
-            /* Abilita scorrimento orizzontale */
-            overflow-x: auto;
-            white-space: nowrap;
-            -webkit-overflow-scrolling: touch; /* Scroll fluido su iOS */
+            display: flex; align-items: center; justify-content: flex-start; 
+            gap: 15px; padding: 10px 20px; padding-bottom: var(--safe-bottom); 
+            z-index: 4000; border-top: 1px solid rgba(0,0,0,0.05); box-shadow: 0 -5px 20px rgba(0,0,0,0.03);
+            overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; 
         }
-
-        /* Nasconde la barra di scorrimento estetica */
         #nav-bar::-webkit-scrollbar { display: none; }
-
         .nav-item { 
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: #999; font-size: 11px; font-weight: 500; cursor: pointer; 
-            border: none; background: none; 
-            
-            /* Importante per lo scroll */
-            flex: 0 0 auto; 
-            min-width: 60px;
-            
+            border: none; background: none; flex: 0 0 auto; min-width: 60px;
             gap: 4px; transition: 0.2s;
         }
         .nav-icon { font-size: 24px; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
@@ -119,34 +90,29 @@
             position: fixed; bottom: -100%; left: 0; width: 100%; height: 85%;
             background: #fff; border-radius: 24px 24px 0 0; z-index: 5000;
             transition: bottom 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
-            display: flex; flex-direction: column;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column;
         }
         .sheet.open { bottom: 0; }
-        
-        .sheet::before {
-            content: ''; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-            width: 40px; height: 5px; background: #e0e0e0; border-radius: 3px;
-        }
-
-        .sheet-header { 
-            padding: 25px 20px 15px 20px; display: flex; justify-content: space-between; align-items: center; 
-        }
+        .sheet::before { content: ''; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 40px; height: 5px; background: #e0e0e0; border-radius: 3px; }
+        .sheet-header { padding: 25px 20px 15px 20px; display: flex; justify-content: space-between; align-items: center; }
         .sheet-header h2 { margin: 0; font-size: 22px; color: #111; font-weight: 700; letter-spacing: -0.5px; }
         .sheet-content { flex: 1; overflow-y: auto; padding: 0 20px 80px 20px; -webkit-overflow-scrolling: touch; }
 
-        /* --- CARDS & LISTS --- */
+        /* --- CARDS & LIST --- */
         .poi-card {
             background: #fff; border: 1px solid #f0f0f0; 
             border-radius: 16px; padding: 16px; margin-bottom: 12px; 
-            display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-            transition: background 0.2s;
+            cursor: pointer; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03); transition: background 0.2s, transform 0.1s;
         }
-        .poi-card:active { background: #f9f9f9; }
+        .poi-card:active { background: #f9f9f9; transform: scale(0.99); }
         .poi-info { flex: 1; overflow: hidden; margin-right: 10px; }
         .poi-name { font-weight: 600; font-size: 16px; color: #333; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .poi-meta { font-size: 12px; color: #888; display: flex; align-items: center; margin-top: 4px; font-weight: 500;}
+        .poi-note-preview { 
+            font-size: 12px; color: #666; margin-top: 8px; font-style: italic; background: #fafafa; padding: 6px; border-radius: 6px; 
+            border-left: 2px solid #ddd;
+        }
         .type-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 
         /* --- BUTTONS --- */
@@ -157,28 +123,36 @@
         .btn-success { background: var(--success); color: white; }
         .btn-info { background: #E5F1FF; color: var(--primary); }
 
+        /* --- POPUP MAPPA (MOBILE OPTIMIZED) --- */
+        .leaflet-popup-content-wrapper { border-radius: 18px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); padding: 0; overflow: hidden; }
+        .leaflet-popup-content { margin: 0 !important; width: 280px !important; font-family: 'Inter', sans-serif; }
+        
+        .popup-header { background: #fff; padding: 16px 20px 10px 20px; border-bottom: 1px solid #f0f0f0; }
+        .popup-title { font-weight: 700; font-size: 17px; color: #333; }
+        .popup-type { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #888; margin-top: 4px; display: flex; align-items: center; }
+        
+        .popup-body { padding: 0 20px; background: #fafafa; }
+        
+        /* Note a comparsa */
+        details.popup-notes { margin: 10px 0; border: 1px solid #eee; border-radius: 8px; background: #fff; }
+        details.popup-notes summary { padding: 10px; font-size: 13px; font-weight: 600; color: var(--primary); cursor: pointer; list-style: none; outline: none; }
+        details.popup-notes summary::-webkit-details-marker { display: none; }
+        details.popup-notes p { margin: 0; padding: 0 10px 10px 10px; font-size: 13px; color: #555; line-height: 1.4; }
+        details[open] summary { border-bottom: 1px solid #eee; margin-bottom: 5px; color: #333; }
+
+        .popup-actions { background: #fff; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px 20px; }
+        .popup-actions .btn { padding: 12px; font-size: 14px; width: 100%; box-sizing: border-box; }
+        
+        .leaflet-popup-close-button { width: 24px !important; height: 24px !important; font-size: 24px !important; color: #999 !important; top: 12px !important; right: 12px !important; }
+
         /* --- SEARCH --- */
-        .search-box-wrapper {
-            position: relative; display: flex; align-items: center; background: #F2F2F7;
-            border-radius: 14px; padding: 8px 15px; 
-        }
+        .search-box-wrapper { position: relative; display: flex; align-items: center; background: #F2F2F7; border-radius: 14px; padding: 8px 15px; }
         .search-box-wrapper input { width: 100%; padding: 8px; border: none; background: transparent; font-size: 16px; outline: none; font-weight: 500; }
         .search-results { list-style: none; padding: 0; margin-top: 20px; }
-        .search-result-item { 
-            background: white; padding: 14px; border-bottom: 1px solid #f5f5f5; 
-            cursor: pointer; display: flex; align-items: center; gap: 12px; border-radius: 12px;
-            margin-bottom: 8px;
-        }
+        .search-result-item { background: white; padding: 14px; border-bottom: 1px solid #f5f5f5; cursor: pointer; display: flex; align-items: center; gap: 12px; border-radius: 12px; margin-bottom: 8px; }
         .search-icon { font-size: 20px; background: #f5f5f7; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
         .result-title { font-weight: 600; font-size: 15px; color: #333; }
         .result-sub { font-size: 12px; color: #888; display: flex; align-items: center; margin-top: 2px;}
-
-        /* --- POPUP MAPPA --- */
-        .leaflet-popup-content-wrapper { border-radius: 16px; box-shadow: 0 4px 25px rgba(0,0,0,0.15); padding: 0; overflow: hidden; }
-        .leaflet-popup-content { margin: 0; width: 220px !important; }
-        .popup-header { background: #f9f9f9; padding: 12px 15px; border-bottom: 1px solid #eee; font-weight: 700; font-size: 15px; text-align: center; }
-        .popup-body { padding: 15px; text-align: center; font-size: 13px; color: #555; }
-        .popup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 15px 15px 15px; }
 
         .badge { padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 5px; }
         .badge-local { background: #E5F1FF; color: #007AFF; }
@@ -196,7 +170,7 @@
             <h1>Mappa POI</h1>
             <div class="inp-group"><input type="text" id="login-user" placeholder="Nome Utente"></div>
             <div class="inp-group"><input type="password" id="login-pass" placeholder="Password (admin)"></div>
-            <button onclick="window.doLogin()">Entra</button>
+            <button id="btn-login-action" onclick="window.doLogin()">Entra</button>
         </div>
     </div>
 
@@ -294,7 +268,12 @@
         let map, poiLayer, markers = {}, myLocationMarker = null;
         const canvasRenderer = L.canvas({ padding: 0.5 });
 
-        // --- SISTEMA DATI & CACHE ---
+        // Helper per evitare problemi con apostrofi
+        const escapeString = (str) => {
+            if (!str) return "";
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        };
+
         async function initApp() {
             const s = localStorage.getItem('poi_user');
             if (!s) { if(document.getElementById('loader')) document.getElementById('loader').style.display='none'; return; }
@@ -338,7 +317,6 @@
             if (isAdmin) renderAdmin();
         }
 
-        // --- MAPPA & GEOLOCALIZZAZIONE ---
         function initMap() {
             const defaultPos = [42.5, 12.5]; 
             map = L.map('map', { zoomControl: false, doubleClickZoom: false }).setView(defaultPos, 6);
@@ -387,27 +365,50 @@
             filtered.forEach(p => {
                 const t = tipologie.find(x => x.id == p.type);
                 const color = t?.colore || '#666';
+                const typeName = t?.tipo || 'Generale';
 
                 const m = L.circleMarker([p.lat, p.lng], { renderer: canvasRenderer, radius: 9, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 }).addTo(poiLayer);
                 
-                let pop = `
-                    <div class="popup-header" style="color:${color}">${p.name}</div>
-                    <div class="popup-body">${p.note || '<i>Nessuna nota</i>'}</div>
-                    <div class="popup-actions">
-                        <button class="btn btn-success" style="width:100%" onclick="window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">Naviga</button>
-                        <button class="btn btn-info" style="width:100%" onclick="window.open('https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}','_blank')">Info</button>
-                    </div>`;
-                
-                if (isAdmin || p.created_by.toLowerCase() === currentUser.name.toLowerCase()) {
-                    pop += `<div style="padding:0 15px 15px 15px;"><button class="btn btn-primary" style="width:100%" onclick="window.showPoiForm(${p.lat},${p.lng},'','${p.id}')">Modifica</button></div>`;
+                const safeId = escapeString(p.id);
+                const safeNameURL = encodeURIComponent(p.name);
+
+                let notesHtml = '';
+                if (p.note && p.note.trim() !== "") {
+                    notesHtml = `
+                        <details class="popup-notes" onclick="event.stopPropagation()">
+                            <summary>📝 Leggi note</summary>
+                            <p>${p.note}</p>
+                        </details>
+                    `;
                 }
+
+                let adminBtns = '';
+                if (isAdmin || p.created_by.toLowerCase() === currentUser.name.toLowerCase()) {
+                    adminBtns = `
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); window.showPoiForm(${p.lat},${p.lng},'','${safeId}')">Modifica</button>
+                        <button class="btn btn-danger" onclick="event.stopPropagation(); window.deletePoi('${safeId}')">Cancella</button>
+                    `;
+                }
+
+                let pop = `
+                    <div class="popup-header" style="border-left: 6px solid ${color}">
+                        <div class="popup-title">${p.name}</div>
+                        <div class="popup-type"><span class="type-dot" style="background:${color}"></span>${typeName}</div>
+                    </div>
+                    <div class="popup-body">
+                        ${notesHtml}
+                    </div>
+                    <div class="popup-actions">
+                        <button class="btn btn-success" onclick="event.stopPropagation(); window.open('https://www.google.com/maps?q=${p.lat},${p.lng}')">Naviga</button>
+                        <button class="btn btn-info" onclick="event.stopPropagation(); window.open('https://it.wikipedia.org/w/index.php?search=${safeNameURL}','_blank')">Info</button>
+                        ${adminBtns}
+                    </div>`;
                 
                 m.bindPopup(pop);
                 markers[p.id] = m;
             });
         }
 
-        // --- RICERCA IBRIDA ---
         let searchTimeout = null;
         window.openSearch = () => { window.openSheet('search-sheet'); setTimeout(()=>document.getElementById('inp-search').focus(), 300); };
         document.getElementById('inp-search').addEventListener('input', function(e) {
@@ -455,8 +456,8 @@
                     window.closeAllSheets(); map.setView([res.lat, res.lng], 17);
                     const safeName = res.name.replace(/'/g, "\\'");
                     L.popup().setLatLng([res.lat, res.lng]).setContent(`
-                        <div class="popup-header">${res.name}</div>
-                        <div class="popup-body">${res.sub}</div>
+                        <div class="popup-header">Nuovo Punto</div>
+                        <div class="popup-body"><b>${res.name}</b><br>${res.sub}</div>
                         <div style="padding:15px"><button class="btn btn-primary" style="width:100%" onclick="window.showPoiForm(${res.lat},${res.lng}, '${safeName}')">Salva Luogo</button></div>
                     `).openOn(map);
                 };
@@ -465,7 +466,6 @@
             if(loadingGlobal && global.length === 0) list.innerHTML += `<div style="text-align:center; padding:20px; color:#ccc;">Cercando online...</div>`;
         }
 
-        // --- GESTIONE SCHEDE & MODAL ---
         window.showPoiForm = (lat, lng, name, id = null) => {
             const poi = id ? poiData.find(p => p.id == id) : null;
             const opts = tipologie.map(t => `<option value="${t.id}" ${t.id == poi?.type ? 'selected' : ''}>${t.tipo}</option>`).join('');
@@ -480,7 +480,6 @@
             L.popup().setLatLng([lat, lng]).setContent(content).openOn(map);
         };
 
-        // --- AZIONI DATABASE ---
         async function dbAction(action, sheet, data, id = null) {
             const loader = document.getElementById('bg-loader');
             loader.style.display = 'flex'; loader.innerHTML = '<div class="mini-spinner"></div> Salvataggio...';
@@ -501,12 +500,10 @@
         };
         window.deletePoi = (id) => { if(confirm("Sei sicuro di voler eliminare questo punto?")) dbAction('delete', 'pois', {}, id); };
 
-        // --- UTILITY UI ---
         window.openSheet = (id) => { document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open')); document.getElementById(id).classList.add('open'); };
         window.closeAllSheets = () => { 
             document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open')); 
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            // Nessun tasto attivo quando si torna alla mappa
         };
         window.setActiveNav = (el) => { document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); el.classList.add('active'); };
         window.zoomTo = (id) => { const m = markers[id]; if(m) { window.closeAllSheets(); map.setView(m.getLatLng(), 17); setTimeout(()=>m.openPopup(), 400); } };
@@ -517,7 +514,16 @@
              let filtered = isAdmin ? poiData : poiData.filter(p => p.created_by.toLowerCase() === currentUser.name.toLowerCase());
              document.getElementById('poi-list-container').innerHTML = filtered.length ? filtered.map(p => {
                 const t = tipologie.find(x => x.id == p.type);
-                return `<div class="poi-card" onclick="window.zoomTo('${p.id}')"><div class="poi-info"><span class="poi-name">${p.name}</span><div class="poi-meta"><span class="type-dot" style="background:${t?.colore}"></span>${t?.tipo}</div></div><button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); window.deletePoi('${p.id}')">Elimina</button></div>`;
+                const notes = p.note ? `<div class="poi-note-preview">📝 ${p.note}</div>` : '';
+                return `
+                <div class="poi-card" onclick="window.zoomTo('${p.id}')">
+                    <div class="poi-info">
+                        <span class="poi-name">${p.name}</span>
+                        <div class="poi-meta"><span class="type-dot" style="background:${t?.colore}"></span>${t?.tipo}</div>
+                        ${notes}
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); window.deletePoi('${p.id}')">Elimina</button>
+                </div>`;
              }).join('') : '<div style="text-align:center; margin-top:40px; color:#999;">Nessun punto salvato.</div>';
         }
         function renderLegend() {
@@ -531,13 +537,25 @@
         window.addAccessUser = () => dbAction('insert', 'accessi', {username: document.getElementById('new-access-user').value});
 
         window.doLogin = async () => {
+            const btn = document.getElementById('btn-login-action');
             const u = document.getElementById('login-user').value.trim();
             const p = document.getElementById('login-pass').value;
-            if (u.toLowerCase() === ADMIN_EMAIL && p === ADMIN_PASS) { saveUser(u, 'admin'); return; }
+
+            const originalText = btn.innerText;
+            btn.innerText = "Verifica in corso...";
+            btn.disabled = true;
+
             try {
+                if (u.toLowerCase() === ADMIN_EMAIL && p === ADMIN_PASS) { saveUser(u, 'admin'); return; }
                 const r = await fetch(`${API_URL}?sheet=accessi`); const d = await r.json();
-                if (d.find(a => a.username.toLowerCase() === u.toLowerCase())) { saveUser(u, 'guest'); } else { alert("Utente non autorizzato."); }
-            } catch(e) { alert("Errore login. Controlla connessione."); }
+                if (d.find(a => a.username.toLowerCase() === u.toLowerCase())) { saveUser(u, 'guest'); } else { 
+                    alert("Utente non autorizzato.");
+                    btn.innerText = originalText; btn.disabled = false;
+                }
+            } catch(e) { 
+                alert("Errore login. Controlla connessione."); 
+                btn.innerText = originalText; btn.disabled = false;
+            }
         };
 
         function saveUser(n, r) { localStorage.setItem('poi_user', JSON.stringify({name:n, role:r})); location.reload(); }
@@ -546,4 +564,4 @@
         document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
-</html>
+</html>```
