@@ -5,56 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>POI Map Pro</title>
 
-    <!-- PWA -->
+    <!-- PWA Settings -->
     <meta name="theme-color" content="#007AFF">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Link PWA -->
     <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
+
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        :root { --primary: #007AFF; --bg: #F2F2F7; --surface: #ffffff; }
-        body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); overflow:hidden; -webkit-tap-highlight-color:transparent; }
+        :root { --primary: #007AFF; --bg: #F2F2F7; --surface: #ffffff; --danger: #FF3B30; }
+        body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); overflow:hidden; -webkit-tap-highlight-color:transparent; overscroll-behavior: none; }
         
-        /* UI Elements */
-        #bg-loader { position:absolute; top:15px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.9); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+        /* Loader */
+        #bg-loader { position:absolute; top:15px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
         .spinner { width:14px; height:14px; border:2px solid rgba(0,0,0,0.1); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
         
         /* Login */
         #login-screen { position:fixed; inset:0; background:#fff; z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; padding:20px; }
         .inp-group { background:#f2f2f7; border-radius:12px; margin-bottom:12px; width:100%; max-width:300px; }
         input, select, textarea { width:100%; padding:14px; border:none; background:transparent; font-size:16px; outline:none; box-sizing:border-box; font-family:inherit; }
-        .btn-main { width:100%; max-width:300px; padding:14px; background:var(--primary); color:white; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; }
+        .btn-main { width:100%; max-width:300px; padding:14px; background:var(--primary); color:white; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; box-shadow: 0 4px 10px rgba(0,122,255,0.3); }
         
-        /* App */
+        /* App Layout */
         #app-container { display:none; height:100%; width:100%; flex-direction:column; position:relative; }
         #map { flex:1; width:100%; z-index:1; background:#e5e5e5; }
         #map-tools { position:absolute; top:15px; right:15px; z-index:3000; display:flex; flex-direction:column; gap:10px; }
-        .tool-btn { width:44px; height:44px; background:var(--surface); border-radius:12px; display:flex; justify-content:center; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); border:none; font-size:20px; cursor:pointer; }
+        .tool-btn { width:44px; height:44px; background:var(--surface); border-radius:12px; display:flex; justify-content:center; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); border:none; font-size:22px; cursor:pointer; }
         
-        /* Nav & Sheets */
-        #nav-bar { height:calc(60px + env(safe-area-inset-bottom)); background:rgba(255,255,255,0.95); display:flex; justify-content:space-around; padding-top:10px; z-index:4000; border-top:1px solid #eee; }
+        /* Navbar */
+        #nav-bar { height:calc(60px + env(safe-area-inset-bottom)); background:rgba(255,255,255,0.95); display:flex; justify-content:space-around; padding-top:10px; z-index:4000; border-top:1px solid #eee; backdrop-filter: blur(10px); }
         .nav-item { display:flex; flex-direction:column; align-items:center; color:#999; font-size:10px; font-weight:500; border:none; background:none; gap:4px; }
-        .nav-item.active { color:var(--primary); }
-        .sheet { position:fixed; bottom:-100%; left:0; width:100%; height:85%; background:#fff; border-radius:20px 20px 0 0; z-index:5000; transition:bottom 0.3s ease-out; box-shadow:0 -10px 40px rgba(0,0,0,0.15); display:flex; flex-direction:column; }
+        .nav-item.active { color:var(--primary); font-weight: 600; }
+        
+        /* Sheets */
+        .sheet { position:fixed; bottom:-100%; left:0; width:100%; height:85%; background:#fff; border-radius:20px 20px 0 0; z-index:5000; transition:bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-shadow:0 -10px 40px rgba(0,0,0,0.15); display:flex; flex-direction:column; }
         .sheet.open { bottom:0; }
         .sheet-header { padding:20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0f0f0; }
         .sheet-content { flex:1; overflow-y:auto; padding:20px; padding-bottom:80px; }
         
-        .poi-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:15px; margin-bottom:10px; display:flex; align-items:center; gap:10px; box-shadow:0 2px 5px rgba(0,0,0,0.02); }
-        .dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+        /* Cards */
+        .poi-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:15px; margin-bottom:10px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); }
+        .dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; border: 2px solid #fff; box-shadow: 0 0 0 1px #ddd; }
         
         @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="bg-loader"><div class="spinner"></div> Caricamento...</div>
+    <div id="bg-loader"><div class="spinner"></div> Sincronizzazione...</div>
 
     <!-- LOGIN -->
     <div id="login-screen">
         <h1 style="margin-bottom:5px;">POI Map</h1>
-        <p style="color:#888; margin-bottom:30px;">Accedi con le tue credenziali</p>
+        <p style="color:#888; margin-bottom:30px;">Accedi ai tuoi luoghi</p>
         <div class="inp-group"><input type="text" id="login-user" placeholder="Utente (es. daniele)"></div>
         <div class="inp-group"><input type="password" id="login-pass" placeholder="Password (vuota se user)"></div>
         <button class="btn-main" onclick="app.doLogin()">Entra</button>
@@ -65,7 +75,7 @@
     <div id="app-container">
         <div id="map-tools">
             <button class="tool-btn" onclick="app.syncData(true)">↻</button>
-            <button class="tool-btn" onclick="app.locateMe()">📍</button>
+            <button class="tool-btn" onclick="app.locateMe()" style="color:var(--primary)">📍</button>
         </div>
 
         <div id="map"></div>
@@ -77,15 +87,17 @@
             <button class="nav-item" onclick="app.logout()">🚪 <span>Esci</span></button>
         </nav>
 
-        <!-- PANNELLI -->
+        <!-- LISTA -->
         <div id="list-sheet" class="sheet">
-            <div class="sheet-header"><h2>Luoghi</h2><span onclick="app.closeSheets()" style="color:red">Chiudi</span></div>
+            <div class="sheet-header"><h2>Luoghi</h2><span onclick="app.closeSheets()" style="color:var(--danger); cursor:pointer;">Chiudi</span></div>
             <div id="list-container" class="sheet-content"></div>
         </div>
 
+        <!-- LEGENDA -->
         <div id="legend-sheet" class="sheet">
-            <div class="sheet-header"><h2>Categorie</h2><span onclick="app.closeSheets()" style="color:red">Chiudi</span></div>
+            <div class="sheet-header"><h2>Categorie</h2><span onclick="app.closeSheets()" style="color:var(--danger); cursor:pointer;">Chiudi</span></div>
             <div id="legend-container" class="sheet-content"></div>
+            <!-- Sezione Admin per Categorie -->
             <div style="padding:20px; border-top:1px solid #eee">
                 <h4>Nuova Categoria</h4>
                 <div style="display:flex; gap:10px;">
@@ -96,8 +108,9 @@
             </div>
         </div>
 
+        <!-- RICERCA -->
         <div id="search-sheet" class="sheet">
-            <div class="sheet-header"><h2>Cerca</h2><span onclick="app.closeSheets()" style="color:red">Chiudi</span></div>
+            <div class="sheet-header"><h2>Cerca</h2><span onclick="app.closeSheets()" style="color:var(--danger); cursor:pointer;">Chiudi</span></div>
             <div class="sheet-content">
                 <input type="search" id="inp-search" placeholder="Cerca..." style="width:100%; padding:12px; background:#f2f2f7; border-radius:10px;" onkeyup="app.search()">
                 <div id="search-results" style="margin-top:15px;"></div>
@@ -108,9 +121,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // --- CONFIGURAZIONE ---
+        // URL INSERITO CORRETTAMENTE
         const API_URL = 'https://script.google.com/macros/s/AKfycbwhGmtYJOsu73inDYC-b3dIH2ofJZ5YYLVJkNtTV_Z3zwimAkgLXkcxF_fUVp0kO872/exec'; 
 
-        // PWA
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 
         const app = {
@@ -124,7 +137,6 @@
                     this.showApp();
                     this.syncData();
                 } else {
-                    // Pre-carica per il login
                     try {
                         let r = await fetch(API_URL);
                         let d = await r.json();
@@ -134,10 +146,11 @@
             },
 
             doLogin: function() {
-                const u = document.getElementById('login-user').value;
-                const p = document.getElementById('login-pass').value;
-                // Cerca nel foglio UTENTI
-                const valid = this.data.users.find(x => x.user == u && String(x.pass) == String(p));
+                const u = document.getElementById('login-user').value.trim();
+                const p = document.getElementById('login-pass').value.trim();
+                
+                // Cerca utente (Case insensitive)
+                const valid = this.data.users.find(x => x.user.toLowerCase() == u.toLowerCase() && String(x.pass) == String(p));
                 
                 if(valid) {
                     this.user = valid;
@@ -157,7 +170,7 @@
 
             initMap: function() {
                 if(this.map) return;
-                this.map = L.map('map', {zoomControl:false}).setView([41.9, 12.5], 6); // Centrato Italia
+                this.map = L.map('map', {zoomControl:false}).setView([41.9, 12.5], 6);
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19}).addTo(this.map);
                 this.map.on('dblclick', e => this.showAdd(e.latlng));
                 this.locateMe();
@@ -169,49 +182,42 @@
                     let r = await fetch(API_URL);
                     let d = await r.json();
                     this.process(d);
-                } catch(e) { console.log(e); }
+                } catch(e) { console.log("Sync error:", e); }
                 document.getElementById('bg-loader').style.display = 'none';
             },
 
             process: function(d) {
                 this.data.pois = d.pois || [];
-                this.data.types = d.tipologie || []; // Mappa ID -> Colore/Nome
+                this.data.types = d.tipologie || [];
                 if(d.utenti) this.data.users = d.utenti;
                 this.render();
             },
 
-            // Funzione per trovare il tipo completo dato l'ID
             getTypeInfo: function(typeId) {
                 return this.data.types.find(t => t.id == typeId) || { tipo: 'Altro', colore: '#999' };
             },
 
             render: function() {
-                // Mappa
                 for(let k in this.markers) this.map.removeLayer(this.markers[k]);
                 this.markers = {};
 
                 this.data.pois.forEach(p => {
-                    // p.type nel tuo foglio è un ID (es. f552...), lo cerchiamo in tipologie
                     const typeInfo = this.getTypeInfo(p.type);
-                    
                     const icon = L.divIcon({className:'c-icon', html:`<div style="background:${typeInfo.colore};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3)"></div>`});
                     
-                    // Assicurati che lat/lng siano numeri (lo script ora gestisce la virgola)
                     const m = L.marker([p.lat, p.lng], {icon}).addTo(this.map);
-                    
                     const canDel = (this.user.ruolo == 'admin' || p.created_by == this.user.user);
                     
                     m.bindPopup(`
                         <b>${p.name}</b><br>
-                        <small style="color:${typeInfo.colore}">${typeInfo.tipo}</small>
+                        <small style="color:${typeInfo.colore};font-weight:bold">${typeInfo.tipo}</small>
                         <p>${p.note || ''}</p>
-                        <button onclick="window.open('https://maps.google.com/?q=${p.lat},${p.lng}')" style="width:100%;margin-bottom:5px;padding:5px;">Naviga</button>
-                        ${canDel ? `<button onclick="app.del('${p.id}')" style="width:100%;background:#fee;color:red;border:none;padding:5px;">Elimina</button>` : ''}
+                        <button onclick="window.open('https://maps.google.com/?q=${p.lat},${p.lng}')" style="width:100%;margin-bottom:5px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;">Naviga</button>
+                        ${canDel ? `<button onclick="app.del('${p.id}')" style="width:100%;background:#fee;color:red;border:none;padding:8px;border-radius:8px;">Elimina</button>` : ''}
                     `);
                     this.markers[p.id] = m;
                 });
 
-                // Liste
                 const l = document.getElementById('list-container');
                 l.innerHTML = '';
                 this.data.pois.forEach(p => {
@@ -227,43 +233,38 @@
             },
 
             showAdd: function(ll) {
-                // Select usa ID come value e TIPO come testo
                 const opts = this.data.types.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
-                
-                const html = `<h3>Nuovo</h3>
-                    <input id="n-name" placeholder="Nome Luogo" style="width:100%;border:1px solid #ddd;padding:8px;margin-bottom:5px;">
-                    <select id="n-type" style="width:100%;border:1px solid #ddd;padding:8px;margin-bottom:5px;">${opts}</select>
-                    <textarea id="n-note" placeholder="Note" style="width:100%;border:1px solid #ddd;padding:8px;"></textarea>
+                const html = `<h3>Nuovo Punto</h3>
+                    <input id="n-name" placeholder="Nome" style="width:100%;border:1px solid #ddd;padding:8px;border-radius:6px;margin-bottom:8px;">
+                    <select id="n-type" style="width:100%;border:1px solid #ddd;padding:8px;border-radius:6px;margin-bottom:8px;">${opts}</select>
+                    <textarea id="n-note" placeholder="Note" style="width:100%;border:1px solid #ddd;padding:8px;border-radius:6px;"></textarea>
                     <button onclick="app.save(${ll.lat},${ll.lng})" style="width:100%;background:var(--primary);color:fff;padding:10px;margin-top:10px;border:none;border-radius:8px;">Salva</button>`;
                 L.popup().setLatLng(ll).setContent(html).openOn(this.map);
             },
 
             save: async function(lat, lng) {
                 const name = document.getElementById('n-name').value;
-                const type = document.getElementById('n-type').value; // Questo è l'ID del tipo
+                const type = document.getElementById('n-type').value; 
                 const note = document.getElementById('n-note').value;
                 
                 if(!name) return;
                 this.map.closePopup();
                 document.getElementById('bg-loader').style.display = 'flex';
                 
-                // Manda i dati usando i nomi corretti del tuo DB
                 await fetch(API_URL, {
-                    method:'POST', 
-                    mode:'no-cors', 
+                    method:'POST', mode:'no-cors', 
                     body:JSON.stringify({
-                        action:'addPoi', 
-                        lat, lng, name, type, note, 
+                        action:'addPoi', lat, lng, name, type, note, 
                         user:this.user.user
                     })
                 });
-                
                 setTimeout(() => this.syncData(true), 1500);
             },
 
             del: async function(id) {
                 if(!confirm("Eliminare?")) return;
                 this.map.closePopup();
+                document.getElementById('bg-loader').style.display = 'flex';
                 await fetch(API_URL, {method:'POST', mode:'no-cors', body:JSON.stringify({action:'deletePoi', id})});
                 setTimeout(() => this.syncData(true), 1500);
             },
@@ -272,6 +273,7 @@
                 const name = document.getElementById('cat-name').value;
                 const color = document.getElementById('cat-color').value;
                 if(!name) return;
+                document.getElementById('bg-loader').style.display = 'flex';
                 await fetch(API_URL, {method:'POST', mode:'no-cors', body:JSON.stringify({action:'addType', name, color})});
                 setTimeout(() => this.syncData(true), 1500);
             },
