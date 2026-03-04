@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>POI Map Pro</title>
+    <title>POI Map Pro v3</title>
 
     <!-- PWA Settings -->
     <meta name="theme-color" content="#007AFF">
@@ -24,7 +24,7 @@
         body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); overflow:hidden; -webkit-tap-highlight-color:transparent; overscroll-behavior: none; }
         
         /* Loader */
-        #bg-loader { position:absolute; top:15px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
+        #bg-loader { position:absolute; top:calc(20px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
         .spinner { width:14px; height:14px; border:2px solid rgba(0,0,0,0.1); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
         
         /* Login */
@@ -36,8 +36,18 @@
         /* App Layout */
         #app-container { display:none; height:100%; width:100%; flex-direction:column; position:relative; }
         #map { flex:1; width:100%; z-index:1; background:#e5e5e5; }
-        #map-tools { position:absolute; top:15px; right:15px; z-index:3000; display:flex; flex-direction:column; gap:10px; }
-        .tool-btn { width:44px; height:44px; background:var(--surface); border-radius:12px; display:flex; justify-content:center; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); border:none; font-size:22px; cursor:pointer; }
+        
+        /* TOOLS FLOTTANTI (Corretto per tacca telefono) */
+        #map-tools { 
+            position: absolute; 
+            top: calc(15px + env(safe-area-inset-top)); 
+            right: 15px; 
+            z-index: 3000; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+        }
+        .tool-btn { width:44px; height:44px; background:var(--surface); border-radius:12px; display:flex; justify-content:center; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); border:none; font-size:20px; cursor:pointer; }
         
         /* Navbar */
         #nav-bar { height:calc(60px + env(safe-area-inset-bottom)); background:rgba(255,255,255,0.95); display:flex; justify-content:space-around; padding-top:10px; z-index:4000; border-top:1px solid #eee; backdrop-filter: blur(10px); }
@@ -59,7 +69,7 @@
 </head>
 <body>
 
-    <div id="bg-loader"><div class="spinner"></div> Sincronizzazione...</div>
+    <div id="bg-loader"><div class="spinner"></div> Caricamento...</div>
 
     <!-- LOGIN -->
     <div id="login-screen">
@@ -73,7 +83,7 @@
 
     <!-- APP -->
     <div id="app-container">
-        <!-- BARRA STRUMENTI RIPRISTINATA -->
+        <!-- BARRA STRUMENTI -->
         <div id="map-tools">
             <button class="tool-btn" onclick="app.syncData(true)" title="Ricarica">↻</button>
             <button class="tool-btn" onclick="app.locateMe()" title="La mia posizione" style="color:var(--primary)">📍</button>
@@ -100,7 +110,6 @@
         <div id="legend-sheet" class="sheet">
             <div class="sheet-header"><h2>Categorie</h2><span onclick="app.closeSheets()" style="color:var(--danger); cursor:pointer;">Chiudi</span></div>
             <div id="legend-container" class="sheet-content"></div>
-            <!-- Sezione Admin per Categorie -->
             <div style="padding:20px; border-top:1px solid #eee">
                 <h4>Nuova Categoria</h4>
                 <div style="display:flex; gap:10px;">
@@ -131,7 +140,7 @@
         const app = {
             data: { pois:[], types:[], users:[] },
             user: null, map: null, markers: {}, 
-            wikiLayer: null, // Per gestire i punti wikipedia
+            wikiLayer: null, 
 
             init: async function() {
                 const u = localStorage.getItem('poi_user');
@@ -234,48 +243,35 @@
                 });
             },
 
-            // --- NUOVE FUNZIONI AGGIUNTE ---
-            
-            // Aggiungi POI al centro della mappa
+            // --- NUOVE FUNZIONI ---
             addAtCenter: function() {
                 const center = this.map.getCenter();
                 this.showAdd(center);
             },
 
-            // Wikipedia Toggle
             toggleWiki: async function() {
                 if(this.wikiLayer) {
                     this.map.removeLayer(this.wikiLayer);
                     this.wikiLayer = null;
                     return;
                 }
-                
                 const c = this.map.getCenter();
                 const url = `https://it.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${c.lat}|${c.lng}&gsradius=5000&gslimit=20&format=json&origin=*`;
-                
                 document.getElementById('bg-loader').style.display = 'flex';
                 try {
                     let r = await fetch(url);
                     let d = await r.json();
                     document.getElementById('bg-loader').style.display = 'none';
-
-                    if(!d.query || !d.query.geosearch || d.query.geosearch.length === 0) {
-                        return alert("Nessuna voce Wikipedia trovata in questa zona.");
-                    }
-                    
+                    if(!d.query || !d.query.geosearch || d.query.geosearch.length === 0) return alert("Nessuna voce Wikipedia qui.");
                     this.wikiLayer = L.layerGroup().addTo(this.map);
-                    
                     d.query.geosearch.forEach(w => {
                         const icon = L.divIcon({className:'w-icon', html:`<div style="background:white;width:24px;height:24px;border-radius:6px;border:1px solid #666;display:flex;justify-content:center;align-items:center;font-weight:bold;font-family:serif;box-shadow:0 2px 5px rgba(0,0,0,0.2);">W</div>`});
                         L.marker([w.lat, w.lon], {icon}).addTo(this.wikiLayer)
-                         .bindPopup(`<b>${w.title}</b><br><a href="https://it.m.wikipedia.org/wiki/?curid=${w.pageid}" target="_blank">Leggi su Wikipedia</a>`);
+                         .bindPopup(`<b>${w.title}</b><br><a href="https://it.m.wikipedia.org/wiki/?curid=${w.pageid}" target="_blank">Apri Wikipedia</a>`);
                     });
-                } catch(e) { 
-                    console.error(e); 
-                    document.getElementById('bg-loader').style.display = 'none';
-                }
+                } catch(e) { console.error(e); document.getElementById('bg-loader').style.display = 'none'; }
             },
-            // -------------------------------
+            // ---------------------
 
             showAdd: function(ll) {
                 const opts = this.data.types.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
