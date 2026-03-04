@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>POI Map Pro v6</title>
+    <title>POI Map Pro v7</title>
 
     <meta name="theme-color" content="#007AFF">
     <meta name="mobile-web-app-capable" content="yes">
@@ -19,17 +19,14 @@
         :root { --primary: #007AFF; --bg: #F2F2F7; --surface: #ffffff; --danger: #FF3B30; }
         body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); overflow:hidden; -webkit-tap-highlight-color:transparent; overscroll-behavior: none; }
         
-        /* Loader */
         #bg-loader { position:absolute; top:calc(20px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
         .spinner { width:14px; height:14px; border:2px solid rgba(0,0,0,0.1); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
         
-        /* Login */
         #login-screen { position:fixed; inset:0; background:#fff; z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; padding:20px; }
         .inp-group { background:#f2f2f7; border-radius:12px; margin-bottom:12px; width:100%; max-width:300px; }
         input, select, textarea { width:100%; padding:14px; border:none; background:transparent; font-size:16px; outline:none; box-sizing:border-box; font-family:inherit; }
         .btn-main { width:100%; max-width:300px; padding:14px; background:var(--primary); color:white; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; box-shadow: 0 4px 10px rgba(0,122,255,0.3); }
         
-        /* Layout */
         #app-container { display:none; height:100%; width:100%; flex-direction:column; position:relative; }
         #map { flex:1; width:100%; z-index:1; background:#e5e5e5; }
         
@@ -40,29 +37,30 @@
         .nav-item { display:flex; flex-direction:column; align-items:center; color:#999; font-size:10px; font-weight:500; border:none; background:none; gap:4px; }
         .nav-item.active { color:var(--primary); font-weight: 600; }
         
-        /* Sheets */
         .sheet { position:fixed; bottom:-100%; left:0; width:100%; height:85%; background:#fff; border-radius:20px 20px 0 0; z-index:5000; transition:bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-shadow:0 -10px 40px rgba(0,0,0,0.15); display:flex; flex-direction:column; }
         .sheet.open { bottom:0; }
         .sheet-header { padding:20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0f0f0; }
         .sheet-content { flex:1; overflow-y:auto; padding:20px; padding-bottom:80px; }
         
-        /* Cards */
         .poi-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:15px; margin-bottom:10px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); }
         .dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; border: 2px solid #fff; box-shadow: 0 0 0 1px #ddd; }
         
-        /* POPUP STYLE FIX */
+        /* POPUP STYLES */
         .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
-        .leaflet-popup-content { margin: 16px !important; width: 260px !important; line-height: 1.5; }
+        .leaflet-popup-content { margin: 16px !important; width: 270px !important; line-height: 1.5; }
         
-        /* STILE LINK-BOTTONI */
+        /* Link come bottoni per visibilità garantita */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         .popup-link {
-            display: block; text-align: center; text-decoration: none;
-            padding: 10px 0; border-radius: 6px; font-size: 13px; font-weight: 600;
-            margin-bottom: 0; 
+            display: flex; align-items: center; justify-content: center;
+            text-decoration: none; padding: 10px 0; border-radius: 8px; 
+            font-size: 13px; font-weight: 700; text-align: center;
         }
         .link-nav { background-color: #E5F1FF; color: #007AFF; border: 1px solid #CCE5FF; }
-        .link-wiki { background-color: #F2F2F7; color: #333; border: 1px solid #D1D1D6; }
-        .link-del { background-color: #FFF0F0; color: #FF3B30; border: 1px solid #FFDCDC; margin-top: 8px; cursor: pointer; width: 100%; padding: 10px 0;}
+        .link-wiki { background-color: #F5F5F5; color: #333; border: 1px solid #DDD; }
+        .link-del { background-color: #FFF0F0; color: #FF3B30; border: 1px solid #FFDCDC; margin-top: 8px; cursor: pointer; width: 100%; border:none; padding:12px; font-weight:600;}
+        
+        .link-full { grid-column: span 2; } /* Bottone largo */
 
         @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
@@ -72,7 +70,7 @@
     <div id="bg-loader"><div class="spinner"></div> Sincronizzazione...</div>
 
     <div id="login-screen">
-        <h1 style="margin-bottom:5px;">POI Map v6</h1>
+        <h1 style="margin-bottom:5px;">POI Map v7</h1>
         <p style="color:#888; margin-bottom:30px;">Accedi ai tuoi luoghi</p>
         <div class="inp-group"><input type="text" id="login-user" placeholder="Utente (es. daniele)"></div>
         <div class="inp-group"><input type="password" id="login-pass" placeholder="Password"></div>
@@ -124,6 +122,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // --- URL DELLO SCRIPT ---
         const API_URL = 'https://script.google.com/macros/s/AKfycbwhGmtYJOsu73inDYC-b3dIH2ofJZ5YYLVJkNtTV_Z3zwimAkgLXkcxF_fUVp0kO872/exec'; 
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
@@ -207,16 +206,18 @@
                     const m = L.marker([p.lat, p.lng], {icon}).addTo(this.map);
                     const canDel = (this.user.ruolo == 'admin' || p.created_by == this.user.user);
                     
-                    // --- I BOTTONI ORA SONO LINK <a> (PIÙ SICURO) ---
+                    // --- PUNTO ESISTENTE: Cerca per NOME su Wikipedia ---
+                    const wikiUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}`;
+                    
                     m.bindPopup(`
                         <div style="font-family:'Inter',sans-serif;">
                             <b style="font-size:16px;">${p.name}</b><br>
                             <small style="color:${typeInfo.colore};font-weight:bold;text-transform:uppercase;">${typeInfo.tipo}</small>
                             <p style="margin:5px 0 10px 0; color:#555; font-size:13px;">${p.note || ''}</p>
                             
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            <div class="btn-grid">
                                 <a href="https://maps.google.com/?q=${p.lat},${p.lng}" target="_blank" class="popup-link link-nav">📍 Naviga</a>
-                                <a href="https://it.wikipedia.org/wiki/Special:Nearby?lat=${p.lat}&lon=${p.lng}" target="_blank" class="popup-link link-wiki">W Wiki</a>
+                                <a href="${wikiUrl}" target="_blank" class="popup-link link-wiki">📖 Wikipedia</a>
                             </div>
                             
                             ${canDel ? `<button class="popup-link link-del" onclick="app.del('${p.id}')">Elimina</button>` : ''}
@@ -225,7 +226,6 @@
                     this.markers[p.id] = m;
                 });
 
-                // Liste
                 const l = document.getElementById('list-container');
                 l.innerHTML = '';
                 this.data.pois.forEach(p => {
@@ -233,7 +233,6 @@
                     l.innerHTML += `<div class="poi-card" onclick="app.flyTo('${p.id}')"><div class="dot" style="background:${typeInfo.colore}"></div><div><b>${p.name}</b><br><small>${typeInfo.tipo}</small></div></div>`;
                 });
 
-                // Legenda
                 const leg = document.getElementById('legend-container');
                 leg.innerHTML = '';
                 this.data.types.forEach(t => {
@@ -244,19 +243,24 @@
             showAdd: function(ll) {
                 const opts = this.data.types.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
                 
+                // --- PUNTO NUOVO: Cerca le COORDINATE per aiuto nome ---
+                const wikiSearch = `https://it.wikipedia.org/w/index.php?search=${ll.lat}+${ll.lng}`;
+                const mapSearch = `https://maps.google.com/?q=${ll.lat},${ll.lng}`;
+
                 const html = `
                     <div style="font-family:'Inter',sans-serif;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <h3 style="margin:0;">Nuovo</h3>
-                            <a href="https://it.wikipedia.org/wiki/Special:Nearby?lat=${ll.lat}&lon=${ll.lng}" target="_blank" 
-                               style="padding:4px 8px; background:#f2f2f7; color:#333; text-decoration:none; border-radius:4px; font-size:11px; border:1px solid #ddd;">
-                               Cerca Wiki
-                            </a>
+                        <h3 style="margin:0 0 10px 0;">Nuovo Punto</h3>
+                        
+                        <div class="btn-grid" style="margin-bottom:15px;">
+                            <a href="${wikiSearch}" target="_blank" class="popup-link link-wiki" style="font-size:11px;">🔍 Cerca Wiki</a>
+                            <a href="${mapSearch}" target="_blank" class="popup-link link-nav" style="font-size:11px;">📍 Controlla</a>
                         </div>
-                        <input id="n-name" placeholder="Nome" style="width:100%; border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:8px; box-sizing:border-box;">
-                        <select id="n-type" style="width:100%; border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:8px; background:white; box-sizing:border-box;">${opts}</select>
-                        <textarea id="n-note" placeholder="Note" rows="2" style="width:100%; border:1px solid #ddd; padding:8px; border-radius:6px; margin-bottom:10px; box-sizing:border-box;"></textarea>
-                        <button onclick="app.save(${ll.lat},${ll.lng})" style="width:100%; background:var(--primary); color:white; padding:10px; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Salva Punto</button>
+
+                        <input id="n-name" placeholder="Nome Luogo" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; box-sizing:border-box;">
+                        <select id="n-type" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; background:white; box-sizing:border-box;">${opts}</select>
+                        <textarea id="n-note" placeholder="Note" rows="2" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:10px; box-sizing:border-box;"></textarea>
+                        
+                        <button onclick="app.save(${ll.lat},${ll.lng})" style="width:100%; background:var(--primary); color:white; padding:12px; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Salva</button>
                     </div>`;
                 L.popup().setLatLng(ll).setContent(html).openOn(this.map);
             },
