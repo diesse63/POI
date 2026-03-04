@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>POI Map Pro v3</title>
+    <title>POI Map Pro</title>
 
     <!-- PWA Settings -->
     <meta name="theme-color" content="#007AFF">
@@ -24,7 +24,7 @@
         body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); overflow:hidden; -webkit-tap-highlight-color:transparent; overscroll-behavior: none; }
         
         /* Loader */
-        #bg-loader { position:absolute; top:calc(20px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
+        #bg-loader { position:absolute; top:15px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
         .spinner { width:14px; height:14px; border:2px solid rgba(0,0,0,0.1); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
         
         /* Login */
@@ -37,16 +37,8 @@
         #app-container { display:none; height:100%; width:100%; flex-direction:column; position:relative; }
         #map { flex:1; width:100%; z-index:1; background:#e5e5e5; }
         
-        /* TOOLS FLOTTANTI (Corretto per tacca telefono) */
-        #map-tools { 
-            position: absolute; 
-            top: calc(15px + env(safe-area-inset-top)); 
-            right: 15px; 
-            z-index: 3000; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-        }
+        /* Tools (Solo Ricarica e Posizione) */
+        #map-tools { position:absolute; top:calc(15px + env(safe-area-inset-top)); right:15px; z-index:3000; display:flex; flex-direction:column; gap:12px; }
         .tool-btn { width:44px; height:44px; background:var(--surface); border-radius:12px; display:flex; justify-content:center; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); border:none; font-size:20px; cursor:pointer; }
         
         /* Navbar */
@@ -64,6 +56,13 @@
         .poi-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:15px; margin-bottom:10px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); }
         .dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; border: 2px solid #fff; box-shadow: 0 0 0 1px #ddd; }
         
+        /* Popup Buttons */
+        .popup-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; margin-bottom: 5px; }
+        .btn-act { padding: 8px; border-radius: 8px; border: 1px solid #ddd; background: #fff; font-weight: 600; cursor: pointer; font-size: 13px; }
+        .btn-nav { background: #f0f8ff; color: var(--primary); border-color: #cce5ff; }
+        .btn-wiki { background: #f8f8f8; color: #333; border-color: #ddd; font-family: serif; }
+        .btn-del { width: 100%; background: #fff5f5; color: var(--danger); border: 1px solid #ffebeb; margin-top: 5px; }
+
         @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -83,12 +82,10 @@
 
     <!-- APP -->
     <div id="app-container">
-        <!-- BARRA STRUMENTI -->
+        <!-- BARRA STRUMENTI: Solo Ricarica e Posizione -->
         <div id="map-tools">
             <button class="tool-btn" onclick="app.syncData(true)" title="Ricarica">↻</button>
             <button class="tool-btn" onclick="app.locateMe()" title="La mia posizione" style="color:var(--primary)">📍</button>
-            <button class="tool-btn" onclick="app.addAtCenter()" title="Aggiungi qui" style="color:var(--success)">➕</button>
-            <button class="tool-btn" onclick="app.toggleWiki()" title="Wikipedia" style="font-weight:bold; font-family:serif;">W</button>
         </div>
 
         <div id="map"></div>
@@ -110,6 +107,7 @@
         <div id="legend-sheet" class="sheet">
             <div class="sheet-header"><h2>Categorie</h2><span onclick="app.closeSheets()" style="color:var(--danger); cursor:pointer;">Chiudi</span></div>
             <div id="legend-container" class="sheet-content"></div>
+            <!-- Sezione Admin per Categorie -->
             <div style="padding:20px; border-top:1px solid #eee">
                 <h4>Nuova Categoria</h4>
                 <div style="display:flex; gap:10px;">
@@ -140,7 +138,6 @@
         const app = {
             data: { pois:[], types:[], users:[] },
             user: null, map: null, markers: {}, 
-            wikiLayer: null, 
 
             init: async function() {
                 const u = localStorage.getItem('poi_user');
@@ -160,7 +157,6 @@
             doLogin: function() {
                 const u = document.getElementById('login-user').value.trim();
                 const p = document.getElementById('login-pass').value.trim();
-                
                 const valid = this.data.users.find(x => x.user.toLowerCase() == u.toLowerCase() && String(x.pass) == String(p));
                 
                 if(valid) {
@@ -183,7 +179,7 @@
                 if(this.map) return;
                 this.map = L.map('map', {zoomControl:false}).setView([41.9, 12.5], 6);
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19}).addTo(this.map);
-                this.map.on('dblclick', e => this.showAdd(e.latlng));
+                this.map.on('dblclick', e => this.showAdd(e.latlng)); // Aggiunta con doppio click
                 this.locateMe();
             },
 
@@ -219,16 +215,23 @@
                     const m = L.marker([p.lat, p.lng], {icon}).addTo(this.map);
                     const canDel = (this.user.ruolo == 'admin' || p.created_by == this.user.user);
                     
+                    // --- QUI SONO I BOTTONI NEL POPUP ---
                     m.bindPopup(`
                         <b>${p.name}</b><br>
                         <small style="color:${typeInfo.colore};font-weight:bold">${typeInfo.tipo}</small>
-                        <p>${p.note || ''}</p>
-                        <button onclick="window.open('https://maps.google.com/?q=${p.lat},${p.lng}')" style="width:100%;margin-bottom:5px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;">Naviga</button>
-                        ${canDel ? `<button onclick="app.del('${p.id}')" style="width:100%;background:#fee;color:red;border:none;padding:8px;border-radius:8px;">Elimina</button>` : ''}
+                        <p style="margin:5px 0 10px 0;">${p.note || ''}</p>
+                        
+                        <div class="popup-btn-row">
+                            <button class="btn-act btn-nav" onclick="window.open('https://maps.google.com/?q=${p.lat},${p.lng}')">📍 Naviga</button>
+                            <button class="btn-act btn-wiki" onclick="window.open('https://it.wikipedia.org/wiki/Special:Nearby?lat=${p.lat}&lon=${p.lng}')">W Wikipedia</button>
+                        </div>
+                        
+                        ${canDel ? `<button class="btn-act btn-del" onclick="app.del('${p.id}')">Elimina</button>` : ''}
                     `);
                     this.markers[p.id] = m;
                 });
 
+                // Liste
                 const l = document.getElementById('list-container');
                 l.innerHTML = '';
                 this.data.pois.forEach(p => {
@@ -236,6 +239,7 @@
                     l.innerHTML += `<div class="poi-card" onclick="app.flyTo('${p.id}')"><div class="dot" style="background:${typeInfo.colore}"></div><div><b>${p.name}</b><br><small>${typeInfo.tipo}</small></div></div>`;
                 });
 
+                // Legenda
                 const leg = document.getElementById('legend-container');
                 leg.innerHTML = '';
                 this.data.types.forEach(t => {
@@ -243,43 +247,23 @@
                 });
             },
 
-            // --- NUOVE FUNZIONI ---
-            addAtCenter: function() {
-                const center = this.map.getCenter();
-                this.showAdd(center);
-            },
-
-            toggleWiki: async function() {
-                if(this.wikiLayer) {
-                    this.map.removeLayer(this.wikiLayer);
-                    this.wikiLayer = null;
-                    return;
-                }
-                const c = this.map.getCenter();
-                const url = `https://it.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${c.lat}|${c.lng}&gsradius=5000&gslimit=20&format=json&origin=*`;
-                document.getElementById('bg-loader').style.display = 'flex';
-                try {
-                    let r = await fetch(url);
-                    let d = await r.json();
-                    document.getElementById('bg-loader').style.display = 'none';
-                    if(!d.query || !d.query.geosearch || d.query.geosearch.length === 0) return alert("Nessuna voce Wikipedia qui.");
-                    this.wikiLayer = L.layerGroup().addTo(this.map);
-                    d.query.geosearch.forEach(w => {
-                        const icon = L.divIcon({className:'w-icon', html:`<div style="background:white;width:24px;height:24px;border-radius:6px;border:1px solid #666;display:flex;justify-content:center;align-items:center;font-weight:bold;font-family:serif;box-shadow:0 2px 5px rgba(0,0,0,0.2);">W</div>`});
-                        L.marker([w.lat, w.lon], {icon}).addTo(this.wikiLayer)
-                         .bindPopup(`<b>${w.title}</b><br><a href="https://it.m.wikipedia.org/wiki/?curid=${w.pageid}" target="_blank">Apri Wikipedia</a>`);
-                    });
-                } catch(e) { console.error(e); document.getElementById('bg-loader').style.display = 'none'; }
-            },
-            // ---------------------
-
+            // --- POPUP DI AGGIUNTA ---
             showAdd: function(ll) {
                 const opts = this.data.types.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
-                const html = `<h3>Nuovo Punto</h3>
-                    <input id="n-name" placeholder="Nome" style="width:100%;border:1px solid #ddd;padding:8px;border-radius:6px;margin-bottom:8px;">
+                
+                // Qui ho messo il bottone Wikipedia accanto al titolo/salva
+                const html = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">Nuovo</h3>
+                        <button class="btn-act btn-wiki" style="padding:4px 8px; font-size:11px;" onclick="window.open('https://it.wikipedia.org/wiki/Special:Nearby?lat=${ll.lat}&lon=${ll.lng}')">Cerca su Wiki</button>
+                    </div>
+                    
+                    <input id="n-name" placeholder="Nome" style="width:100%;border:1px solid #ddd;padding:8px;border-radius:6px;margin:10px 0 8px 0;">
                     <select id="n-type" style="width:100%;border:1px solid #ddd;padding:8px;border-radius:6px;margin-bottom:8px;">${opts}</select>
                     <textarea id="n-note" placeholder="Note" style="width:100%;border:1px solid #ddd;padding:8px;border-radius:6px;"></textarea>
-                    <button onclick="app.save(${ll.lat},${ll.lng})" style="width:100%;background:var(--primary);color:fff;padding:10px;margin-top:10px;border:none;border-radius:8px;">Salva</button>`;
+                    
+                    <button onclick="app.save(${ll.lat},${ll.lng})" style="width:100%;background:var(--primary);color:fff;padding:10px;margin-top:10px;border:none;border-radius:8px;font-weight:600;">Salva Punto</button>
+                `;
                 L.popup().setLatLng(ll).setContent(html).openOn(this.map);
             },
 
