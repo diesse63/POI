@@ -16,10 +16,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        :root { --primary: #007AFF; --bg: #F2F2F7; --surface: #ffffff; --danger: #FF3B30; }
+        :root { --primary: #007AFF; --bg: #F2F2F7; --surface: #ffffff; --danger: #FF3B30; --edit: #5856D6; }
         body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); overflow:hidden; -webkit-tap-highlight-color:transparent; overscroll-behavior: none; }
         
-        #bg-loader { position:absolute; top:calc(20px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9000; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
+        #bg-loader { position:fixed; top:calc(20px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.95); padding:8px 16px; border-radius:30px; z-index:9999; font-size:13px; display:none; align-items:center; gap:10px; color:var(--primary); font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px); }
         .spinner { width:14px; height:14px; border:2px solid rgba(0,0,0,0.1); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
         
         #login-screen { position:fixed; inset:0; background:#fff; z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; padding:20px; }
@@ -42,25 +42,31 @@
         .sheet-header { padding:20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0f0f0; }
         .sheet-content { flex:1; overflow-y:auto; padding:20px; padding-bottom:80px; }
         
-        .poi-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:15px; margin-bottom:10px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); }
+        .poi-card { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:12px; margin-bottom:10px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); }
+        .poi-card-info { flex:1; cursor: pointer; }
+        .poi-card-actions { display: flex; gap: 8px; }
+        .action-btn { border: none; background: #f2f2f7; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .action-btn.del { color: var(--danger); }
+        .action-btn.edit { color: var(--edit); }
+
         .dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; border: 2px solid #fff; box-shadow: 0 0 0 1px #ddd; }
         
         /* POPUP STYLES */
         .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
         .leaflet-popup-content { margin: 16px !important; width: 270px !important; line-height: 1.5; }
         
-        /* Link come bottoni per visibilità garantita */
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         .popup-link {
             display: flex; align-items: center; justify-content: center;
             text-decoration: none; padding: 10px 0; border-radius: 8px; 
-            font-size: 13px; font-weight: 700; text-align: center;
+            font-size: 13px; font-weight: 700; text-align: center; border:none; cursor:pointer;
         }
         .link-nav { background-color: #E5F1FF; color: #007AFF; border: 1px solid #CCE5FF; }
         .link-wiki { background-color: #F5F5F5; color: #333; border: 1px solid #DDD; }
-        .link-del { background-color: #FFF0F0; color: #FF3B30; border: 1px solid #FFDCDC; margin-top: 8px; cursor: pointer; width: 100%; border:none; padding:12px; font-weight:600;}
+        .link-edit { background-color: #F0EFFF; color: #5856D6; border: 1px solid #E0DEFF; }
+        .link-del { background-color: #FFF0F0; color: #FF3B30; border: 1px solid #FFDCDC; }
         
-        .link-full { grid-column: span 2; } /* Bottone largo */
+        .link-full { grid-column: span 2; }
 
         @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
@@ -72,7 +78,7 @@
     <div id="login-screen">
         <h1 style="margin-bottom:5px;">POI Map v7</h1>
         <p style="color:#888; margin-bottom:30px;">Accedi ai tuoi luoghi</p>
-        <div class="inp-group"><input type="text" id="login-user" placeholder="Utente (es. daniele)"></div>
+        <div class="inp-group"><input type="text" id="login-user" placeholder="Utente"></div>
         <div class="inp-group"><input type="password" id="login-pass" placeholder="Password"></div>
         <button class="btn-main" onclick="app.doLogin()">Entra</button>
         <p id="login-msg" style="color:red; font-size:13px; margin-top:15px;"></p>
@@ -123,9 +129,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // --- URL DELLO SCRIPT ---
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwhGmtYJOsu73inDYC-b3dIH2ofJZ5YYLVJkNtTV_Z3zwimAkgLXkcxF_fUVp0kO872/exec'; 
-
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+        const API_URL = 'INSERISCI_QUI_IL_TUO_URL_APPS_SCRIPT'; 
 
         const app = {
             data: { pois:[], types:[], users:[] },
@@ -204,9 +208,8 @@
                     const icon = L.divIcon({className:'c-icon', html:`<div style="background:${typeInfo.colore};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3)"></div>`});
                     
                     const m = L.marker([p.lat, p.lng], {icon}).addTo(this.map);
-                    const canDel = (this.user.ruolo == 'admin' || p.created_by == this.user.user);
+                    const canEdit = (this.user.ruolo == 'admin' || p.created_by == this.user.user);
                     
-                    // --- PUNTO ESISTENTE: Cerca per NOME su Wikipedia ---
                     const wikiUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(p.name)}`;
                     
                     m.bindPopup(`
@@ -217,20 +220,35 @@
                             
                             <div class="btn-grid">
                                 <a href="https://maps.google.com/?q=${p.lat},${p.lng}" target="_blank" class="popup-link link-nav">📍 Naviga</a>
-                                <a href="${wikiUrl}" target="_blank" class="popup-link link-wiki">📖 Wikipedia</a>
+                                <a href="${wikiUrl}" target="_blank" class="popup-link link-wiki">📖 Wiki</a>
+                                ${canEdit ? `<button class="popup-link link-edit" onclick="app.showEdit('${p.id}')">✏️ Edit</button>` : ''}
+                                ${canEdit ? `<button class="popup-link link-del" onclick="app.del('${p.id}')">🗑️ Elimina</button>` : ''}
                             </div>
-                            
-                            ${canDel ? `<button class="popup-link link-del" onclick="app.del('${p.id}')">Elimina</button>` : ''}
                         </div>
                     `);
                     this.markers[p.id] = m;
                 });
 
+                // Rendering Lista
                 const l = document.getElementById('list-container');
                 l.innerHTML = '';
                 this.data.pois.forEach(p => {
                     const typeInfo = this.getTypeInfo(p.type);
-                    l.innerHTML += `<div class="poi-card" onclick="app.flyTo('${p.id}')"><div class="dot" style="background:${typeInfo.colore}"></div><div><b>${p.name}</b><br><small>${typeInfo.tipo}</small></div></div>`;
+                    const canEdit = (this.user.ruolo == 'admin' || p.created_by == this.user.user);
+                    
+                    l.innerHTML += `
+                    <div class="poi-card">
+                        <div class="poi-card-info" onclick="app.flyTo('${p.id}')">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <div class="dot" style="background:${typeInfo.colore}"></div>
+                                <div><b>${p.name}</b><br><small>${typeInfo.tipo}</small></div>
+                            </div>
+                        </div>
+                        <div class="poi-card-actions">
+                            ${canEdit ? `<button class="action-btn edit" onclick="app.showEdit('${p.id}')">✏️</button>` : ''}
+                            ${canEdit ? `<button class="action-btn del" onclick="app.del('${p.id}')">🗑️</button>` : ''}
+                        </div>
+                    </div>`;
                 });
 
                 const leg = document.getElementById('legend-container');
@@ -242,51 +260,69 @@
 
             showAdd: function(ll) {
                 const opts = this.data.types.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
-                
-                // --- PUNTO NUOVO: Cerca le COORDINATE per aiuto nome ---
-                const wikiSearch = `https://it.wikipedia.org/w/index.php?search=${ll.lat}+${ll.lng}`;
-                const mapSearch = `https://maps.google.com/?q=${ll.lat},${ll.lng}`;
-
                 const html = `
                     <div style="font-family:'Inter',sans-serif;">
                         <h3 style="margin:0 0 10px 0;">Nuovo Punto</h3>
-                        
-                        <div class="btn-grid" style="margin-bottom:15px;">
-                            <a href="${wikiSearch}" target="_blank" class="popup-link link-wiki" style="font-size:11px;">🔍 Cerca Wiki</a>
-                            <a href="${mapSearch}" target="_blank" class="popup-link link-nav" style="font-size:11px;">📍 Controlla</a>
-                        </div>
-
                         <input id="n-name" placeholder="Nome Luogo" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; box-sizing:border-box;">
                         <select id="n-type" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; background:white; box-sizing:border-box;">${opts}</select>
                         <textarea id="n-note" placeholder="Note" rows="2" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:10px; box-sizing:border-box;"></textarea>
-                        
                         <button onclick="app.save(${ll.lat},${ll.lng})" style="width:100%; background:var(--primary); color:white; padding:12px; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Salva</button>
                     </div>`;
                 L.popup().setLatLng(ll).setContent(html).openOn(this.map);
+            },
+
+            showEdit: function(id) {
+                const p = this.data.pois.find(x => x.id == id);
+                if(!p) return;
+                
+                this.closeSheets();
+                const opts = this.data.types.map(t => `<option value="${t.id}" ${t.id == p.type ? 'selected' : ''}>${t.tipo}</option>`).join('');
+                
+                const html = `
+                    <div style="font-family:'Inter',sans-serif;">
+                        <h3 style="margin:0 0 10px 0;">Modifica Punto</h3>
+                        <input id="e-name" value="${p.name}" placeholder="Nome Luogo" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; box-sizing:border-box;">
+                        <select id="e-type" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; background:white; box-sizing:border-box;">${opts}</select>
+                        <textarea id="e-note" placeholder="Note" rows="2" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:10px; box-sizing:border-box;">${p.note || ''}</textarea>
+                        <button onclick="app.update('${p.id}')" style="width:100%; background:var(--edit); color:white; padding:12px; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Aggiorna</button>
+                    </div>`;
+                
+                L.popup().setLatLng([p.lat, p.lng]).setContent(html).openOn(this.map);
+                this.map.setView([p.lat, p.lng], 15);
             },
 
             save: async function(lat, lng) {
                 const name = document.getElementById('n-name').value;
                 const type = document.getElementById('n-type').value; 
                 const note = document.getElementById('n-note').value;
-                
                 if(!name) return;
                 this.map.closePopup();
                 document.getElementById('bg-loader').style.display = 'flex';
-                
                 await fetch(API_URL, {
                     method:'POST', mode:'no-cors', 
-                    body:JSON.stringify({
-                        action:'addPoi', lat, lng, name, type, note, 
-                        user:this.user.user
-                    })
+                    body:JSON.stringify({ action:'addPoi', lat, lng, name, type, note, user:this.user.user })
+                });
+                setTimeout(() => this.syncData(true), 1500);
+            },
+
+            update: async function(id) {
+                const name = document.getElementById('e-name').value;
+                const type = document.getElementById('e-type').value; 
+                const note = document.getElementById('e-note').value;
+                if(!name) return;
+                this.map.closePopup();
+                document.getElementById('bg-loader').style.display = 'flex';
+                await fetch(API_URL, {
+                    method:'POST', mode:'no-cors', 
+                    body:JSON.stringify({ action:'editPoi', id, name, type, note })
                 });
                 setTimeout(() => this.syncData(true), 1500);
             },
 
             del: async function(id) {
-                if(!confirm("Eliminare?")) return;
+                if(!confirm("Eliminare definitivamente questo luogo?")) return;
                 this.map.closePopup();
+                this.closeSheets();
                 document.getElementById('bg-loader').style.display = 'flex';
                 await fetch(API_URL, {method:'POST', mode:'no-cors', body:JSON.stringify({action:'deletePoi', id})});
                 setTimeout(() => this.syncData(true), 1500);
