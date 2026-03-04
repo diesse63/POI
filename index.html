@@ -20,7 +20,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        :root { --primary: #007AFF; --bg: #F2F2F7; --surface: #ffffff; --danger: #FF3B30; }
+        :root { --primary: #007AFF; --bg: #F2F2F7; --surface: #ffffff; --danger: #FF3B30; --success: #34C759; }
         body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); overflow:hidden; -webkit-tap-highlight-color:transparent; overscroll-behavior: none; }
         
         /* Loader */
@@ -73,9 +73,12 @@
 
     <!-- APP -->
     <div id="app-container">
+        <!-- BARRA STRUMENTI RIPRISTINATA -->
         <div id="map-tools">
-            <button class="tool-btn" onclick="app.syncData(true)">↻</button>
-            <button class="tool-btn" onclick="app.locateMe()" style="color:var(--primary)">📍</button>
+            <button class="tool-btn" onclick="app.syncData(true)" title="Ricarica">↻</button>
+            <button class="tool-btn" onclick="app.locateMe()" title="La mia posizione" style="color:var(--primary)">📍</button>
+            <button class="tool-btn" onclick="app.addAtCenter()" title="Aggiungi qui" style="color:var(--success)">➕</button>
+            <button class="tool-btn" onclick="app.toggleWiki()" title="Wikipedia" style="font-weight:bold; font-family:serif;">W</button>
         </div>
 
         <div id="map"></div>
@@ -121,14 +124,14 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // --- CONFIGURAZIONE ---
-        // HO INSERITO IL TUO URL CORRETTO QUI SOTTO:
         const API_URL = 'https://script.google.com/macros/s/AKfycbwhGmtYJOsu73inDYC-b3dIH2ofJZ5YYLVJkNtTV_Z3zwimAkgLXkcxF_fUVp0kO872/exec'; 
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 
         const app = {
             data: { pois:[], types:[], users:[] },
-            user: null, map: null, markers: {},
+            user: null, map: null, markers: {}, 
+            wikiLayer: null, // Per gestire i punti wikipedia
 
             init: async function() {
                 const u = localStorage.getItem('poi_user');
@@ -149,7 +152,6 @@
                 const u = document.getElementById('login-user').value.trim();
                 const p = document.getElementById('login-pass').value.trim();
                 
-                // Cerca utente (Case insensitive)
                 const valid = this.data.users.find(x => x.user.toLowerCase() == u.toLowerCase() && String(x.pass) == String(p));
                 
                 if(valid) {
@@ -231,6 +233,49 @@
                     leg.innerHTML += `<div class="poi-card"><div class="dot" style="background:${t.colore}"></div>${t.tipo}</div>`;
                 });
             },
+
+            // --- NUOVE FUNZIONI AGGIUNTE ---
+            
+            // Aggiungi POI al centro della mappa
+            addAtCenter: function() {
+                const center = this.map.getCenter();
+                this.showAdd(center);
+            },
+
+            // Wikipedia Toggle
+            toggleWiki: async function() {
+                if(this.wikiLayer) {
+                    this.map.removeLayer(this.wikiLayer);
+                    this.wikiLayer = null;
+                    return;
+                }
+                
+                const c = this.map.getCenter();
+                const url = `https://it.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${c.lat}|${c.lng}&gsradius=5000&gslimit=20&format=json&origin=*`;
+                
+                document.getElementById('bg-loader').style.display = 'flex';
+                try {
+                    let r = await fetch(url);
+                    let d = await r.json();
+                    document.getElementById('bg-loader').style.display = 'none';
+
+                    if(!d.query || !d.query.geosearch || d.query.geosearch.length === 0) {
+                        return alert("Nessuna voce Wikipedia trovata in questa zona.");
+                    }
+                    
+                    this.wikiLayer = L.layerGroup().addTo(this.map);
+                    
+                    d.query.geosearch.forEach(w => {
+                        const icon = L.divIcon({className:'w-icon', html:`<div style="background:white;width:24px;height:24px;border-radius:6px;border:1px solid #666;display:flex;justify-content:center;align-items:center;font-weight:bold;font-family:serif;box-shadow:0 2px 5px rgba(0,0,0,0.2);">W</div>`});
+                        L.marker([w.lat, w.lon], {icon}).addTo(this.wikiLayer)
+                         .bindPopup(`<b>${w.title}</b><br><a href="https://it.m.wikipedia.org/wiki/?curid=${w.pageid}" target="_blank">Leggi su Wikipedia</a>`);
+                    });
+                } catch(e) { 
+                    console.error(e); 
+                    document.getElementById('bg-loader').style.display = 'none';
+                }
+            },
+            // -------------------------------
 
             showAdd: function(ll) {
                 const opts = this.data.types.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
