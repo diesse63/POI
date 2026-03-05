@@ -133,7 +133,7 @@
 
         const app = {
             data: { pois:[], types:[], users:[] },
-            user: null, map: null, markers: {}, 
+            user: null, map: null, markers: {}, selectedPoiName: '', lastClickCoords: null,
 
             init: async function() {
                 const u = localStorage.getItem('poi_user');
@@ -174,6 +174,7 @@
                 if(this.map) return;
                 this.map = L.map('map', {zoomControl:false}).setView([41.9, 12.5], 6);
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19}).addTo(this.map);
+                this.map.on('click', e => this.lastClickCoords = {lat: e.latlng.lat, lng: e.latlng.lng});
                 this.map.on('dblclick', e => this.showAdd(e.latlng));
                 this.locateMe();
             },
@@ -203,7 +204,12 @@
                 for(let k in this.markers) this.map.removeLayer(this.markers[k]);
                 this.markers = {};
 
-                this.data.pois.forEach(p => {
+                // Filtra POI solo dell'utente loggato (admin vede tutti)
+                const filteredPois = this.data.pois.filter(p => 
+                    this.user.ruolo == 'admin' || p.created_by == this.user.user
+                );
+
+                filteredPois.forEach(p => {
                     const typeInfo = this.getTypeInfo(p.type);
                     const icon = L.divIcon({className:'c-icon', html:`<div style="background:${typeInfo.colore};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3)"></div>`});
                     
@@ -232,7 +238,7 @@
                 // Rendering Lista
                 const l = document.getElementById('list-container');
                 l.innerHTML = '';
-                this.data.pois.forEach(p => {
+                filteredPois.forEach(p => {
                     const typeInfo = this.getTypeInfo(p.type);
                     const canEdit = (this.user.ruolo == 'admin' || p.created_by == this.user.user);
                     
@@ -258,17 +264,71 @@
                 });
             },
 
-            showAdd: function(ll) {
+            getReverseGeocoding: async function(lat, lng) {
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                        headers: {
+                            'User-Agent': 'POIMapApp/1.0'
+                        }
+                    });
+                    
+                    if(!response.ok) {
+                        console.log('Nominatim error:', response.status);
+                        return '';
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Reverse geocoding data:', data);
+                    
+                    const address = data.address || {};
+                    
+                    // Prova gli address properties specificati
+                    if(address.monument) return address.monument;
+                    if(address.attraction) return address.attraction;
+                    if(address.historic) return address.historic;
+                    if(address.building) return address.building;
+                    if(address.amenity) return address.amenity;
+                    if(address.shop) return address.shop;
+                    if(address.road) return address.road;
+                    if(address.plaza) return address.plaza;
+                    if(address.village) return address.village;
+                    if(address.town) return address.town;
+                    if(address.city) return address.city;
+                    
+                    // Fallback a display_name
+                    if(data.display_name) {
+                        const parts = data.display_name.split(',');
+                        return parts[0].trim();
+                    }
+                    
+                    return '';
+                } catch(e) {
+                    console.log('Reverse geocoding error:', e);
+                    return '';
+                }
+            },
+
+            showAdd: async function(ll) {
                 const opts = this.data.types.map(t => `<option value="${t.id}">${t.tipo}</option>`).join('');
+                let nameValue = this.selectedPoiName || '';
+                
+                // Se il nome non è già stato selezionato dalla ricerca, fai reverse geocoding
+                if(!nameValue) {
+                    nameValue = await this.getReverseGeocoding(ll.lat, ll.lng);
+                    console.log('Nome rilevato:', nameValue);
+                }
+                
                 const html = `
                     <div style="font-family:'Inter',sans-serif;">
                         <h3 style="margin:0 0 10px 0;">Nuovo Punto</h3>
-                        <input id="n-name" placeholder="Nome Luogo" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; box-sizing:border-box;">
+                        <input id="n-name" placeholder="Nome Luogo" value="${nameValue}" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; box-sizing:border-box;">
                         <select id="n-type" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:8px; background:white; box-sizing:border-box;">${opts}</select>
                         <textarea id="n-note" placeholder="Note" rows="2" style="width:100%; border:1px solid #ddd; padding:10px; border-radius:8px; margin-bottom:10px; box-sizing:border-box;"></textarea>
                         <button onclick="app.save(${ll.lat},${ll.lng})" style="width:100%; background:var(--primary); color:white; padding:12px; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Salva</button>
                     </div>`;
+                
                 L.popup().setLatLng(ll).setContent(html).openOn(this.map);
+                this.selectedPoiName = '';
             },
 
             showEdit: function(id) {
@@ -337,14 +397,63 @@
                 setTimeout(() => this.syncData(true), 1500);
             },
 
-            search: function() {
-                const q = document.getElementById('inp-search').value.toLowerCase();
+            getDistance: function(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Raggio della Terra in km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            },
+
+            search: async function() {
+                const q = document.getElementById('inp-search').value.trim();
                 const d = document.getElementById('search-results');
                 d.innerHTML = '';
-                if(q.length < 2) return;
-                this.data.pois.filter(p => p.name.toLowerCase().includes(q)).forEach(p => {
-                    d.innerHTML += `<div class="poi-card" onclick="app.flyTo('${p.id}')"><b>${p.name}</b></div>`;
-                });
+                if(q.length < 4) {
+                    d.innerHTML = '<p style="color:#aaa; font-size:13px;">Digita almeno 4 caratteri per cercare</p>';
+                    return;
+                }
+                
+                try {
+                    // Ricerca su OpenStreetMap Nominatim su tutto il mondo
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=50`);
+                    let results = await response.json();
+                    
+                    console.log('Query:', q, 'Risultati trovati:', results.length);
+                    
+                    // Ordina i risultati per vicinanza alle coordinate cliccate
+                    if(this.lastClickCoords) {
+                        results.sort((a, b) => {
+                            const distA = this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, parseFloat(a.lat), parseFloat(a.lon));
+                            const distB = this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, parseFloat(b.lat), parseFloat(b.lon));
+                            return distA - distB;
+                        });
+                        results = results.slice(0, 10); // Limita a 10 risultati
+                    } else {
+                        results = results.slice(0, 20); // Se non cliccato, mostra primi 20
+                    }
+                    
+                    if(results.length > 0) {
+                        results.forEach(place => {
+                            const dist = this.lastClickCoords ? this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, parseFloat(place.lat), parseFloat(place.lon)).toFixed(1) : '';
+                            const distText = dist ? ` <small style="color:#aaa;">(${dist} km)</small>` : '';
+                            d.innerHTML += `<div class="poi-card" style="display:flex; justify-content:space-between; align-items:center;"><div style="flex:1; cursor: pointer;" onclick="app.selectSearchResult('${place.display_name.replace(/'/g, "\\'")}', ${place.lat}, ${place.lon})"><b>${place.display_name}</b><br><small style="color:#888;">${place.type}</small>${distText}</div><a href="https://www.openstreetmap.org/?lat=${place.lat}&lon=${place.lon}&zoom=16" target="_blank" class="action-btn" style="color:#007AFF;">🗺️</a></div>`;
+                        });
+                    } else {
+                        d.innerHTML = '<p style="color:#888; font-size:13px;">Nessun risultato trovato per "' + q + '"</p>';
+                    }
+                } catch(e) {
+                    console.log('Errore ricerca:', e);
+                    d.innerHTML = '<p style="color:#888; font-size:13px;">Errore nella ricerca. Riprova.</p>';
+                }
+            },
+            
+            selectSearchResult: function(name, lat, lng) {
+                this.selectedPoiName = name.split(',')[0].trim();
+                this.closeSheets();
+                this.map.setView([lat, lng], 16);
+                this.showAdd({lat, lng});
             },
 
             locateMe: function() {
