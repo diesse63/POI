@@ -136,7 +136,7 @@
         const app = {
             data: { pois:[], types:[], users:[] },
             user: null, map: null, markers: {}, selectedPoiName: '', lastClickCoords: null,
-            searchDebounceId: null, searchRequestId: 0, mapClickTimer: null,
+            searchDebounceId: null, searchRequestId: 0,
 
             init: async function() {
                 const u = localStorage.getItem('poi_user');
@@ -180,14 +180,9 @@
                 if(this.map) return;
                 this.map = L.map('map', {zoomControl:false}).setView([41.9, 12.5], 6);
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19}).addTo(this.map);
-                this.map.on('click', e => {
-                    this.lastClickCoords = {lat: e.latlng.lat, lng: e.latlng.lng};
-                    clearTimeout(this.mapClickTimer);
-                    this.mapClickTimer = setTimeout(() => this.showMapInfoPopup(e.latlng), 220);
-                });
                 this.map.on('dblclick', e => {
-                    clearTimeout(this.mapClickTimer);
-                    this.showAdd(e.latlng);
+                    this.lastClickCoords = {lat: e.latlng.lat, lng: e.latlng.lng};
+                    this.showMapChoicePopup(e.latlng);
                 });
                 this.locateMe();
             },
@@ -315,34 +310,39 @@
                 }
             },
 
-            showMapInfoPopup: async function(ll) {
+            showMapChoicePopup: async function(ll) {
                 let name = '';
                 try {
                     name = await this.getReverseGeocoding(ll.lat, ll.lng);
                 } catch(e) {
-                    console.log('Map info popup error:', e);
+                    console.log('Map choice popup error:', e);
                 }
 
                 if(!name) {
                     name = `${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`;
                 }
 
+                this.selectedPoiName = name;
                 const safeName = this.escapeHtml(name);
                 const wikiUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
-                const navUrl = `https://maps.google.com/?q=${ll.lat},${ll.lng}`;
 
                 const html = `
                     <div style="font-family:'Inter',sans-serif;">
                         <b style="font-size:16px;">${safeName}</b><br>
-                        <small style="color:#666;">Luogo rilevato sulla mappa</small>
+                        <small style="color:#666;">Scegli cosa fare con questo luogo</small>
                         <div class="btn-grid">
-                            <a href="${navUrl}" target="_blank" class="popup-link link-nav">📍 Naviga</a>
+                            <button onclick="app.startSaveFromMapChoice(${ll.lat}, ${ll.lng})" class="popup-link link-nav">💾 Salva</button>
                             <a href="${wikiUrl}" target="_blank" class="popup-link link-wiki">📖 Wiki</a>
                         </div>
                     </div>
                 `;
 
                 L.popup().setLatLng(ll).setContent(html).openOn(this.map);
+            },
+
+            startSaveFromMapChoice: function(lat, lng) {
+                this.map.closePopup();
+                this.showAdd({lat, lng});
             },
 
             getNearbyLandmarkName: async function(lat, lng) {
