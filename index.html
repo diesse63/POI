@@ -76,7 +76,7 @@
     <div id="bg-loader"><div class="spinner"></div> Sincronizzazione...</div>
 
     <div id="login-screen">
-        <h1 style="margin-bottom:5px;">POI Map v7</h1>
+        <h1 style="margin-bottom:5px;">POI Map v8</h1>
         <p style="color:#888; margin-bottom:30px;">Accedi ai tuoi luoghi</p>
         <div class="inp-group"><input type="text" id="login-user" placeholder="Utente"></div>
         <div class="inp-group"><input type="password" id="login-pass" placeholder="Password"></div>
@@ -120,7 +120,7 @@
         <div id="search-sheet" class="sheet">
             <div class="sheet-header"><h2>Cerca</h2><span onclick="app.closeSheets()" style="color:var(--danger); cursor:pointer;">Chiudi</span></div>
             <div class="sheet-content">
-                <input type="search" id="inp-search" placeholder="Cerca..." style="width:100%; padding:12px; background:#f2f2f7; border-radius:10px;" onkeyup="app.search()">
+                <input type="search" id="inp-search" placeholder="Cerca indirizzi, luoghi o coordinate..." style="width:100%; padding:12px; background:#f2f2f7; border-radius:10px;" oninput="app.search()">
                 <div id="search-results" style="margin-top:15px;"></div>
             </div>
         </div>
@@ -130,10 +130,13 @@
     <script>
         // --- URL DELLO SCRIPT ---
         const API_URL = 'https://script.google.com/macros/s/AKfycbxxjemn2ARO9Ph5f42CSojaf7aBjBmbq9barz6eanmUIwiC0YKQicqgEVBHMzUFEExj/exec'; 
+        const LOCAL_ADMIN_USER = 'daniele';
+        const LOCAL_ADMIN_PASS = '140763';
 
         const app = {
             data: { pois:[], types:[], users:[] },
             user: null, map: null, markers: {}, selectedPoiName: '', lastClickCoords: null,
+            searchDebounceId: null, searchRequestId: 0, mapClickTimer: null,
 
             init: async function() {
                 const u = localStorage.getItem('poi_user');
@@ -153,7 +156,10 @@
             doLogin: function() {
                 const u = document.getElementById('login-user').value.trim();
                 const p = document.getElementById('login-pass').value.trim();
-                const valid = this.data.users.find(x => x.user.toLowerCase() == u.toLowerCase() && String(x.pass) == String(p));
+                const localAdmin = u.toLowerCase() === LOCAL_ADMIN_USER.toLowerCase() && String(p) === LOCAL_ADMIN_PASS
+                    ? { user: LOCAL_ADMIN_USER, pass: LOCAL_ADMIN_PASS, ruolo: 'admin' }
+                    : null;
+                const valid = localAdmin || this.data.users.find(x => x.user.toLowerCase() == u.toLowerCase() && String(x.pass) == String(p));
                 if(valid) {
                     this.user = valid;
                     localStorage.setItem('poi_user', JSON.stringify(valid));
@@ -174,8 +180,15 @@
                 if(this.map) return;
                 this.map = L.map('map', {zoomControl:false}).setView([41.9, 12.5], 6);
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19}).addTo(this.map);
-                this.map.on('click', e => this.lastClickCoords = {lat: e.latlng.lat, lng: e.latlng.lng});
-                this.map.on('dblclick', e => this.showAdd(e.latlng));
+                this.map.on('click', e => {
+                    this.lastClickCoords = {lat: e.latlng.lat, lng: e.latlng.lng};
+                    clearTimeout(this.mapClickTimer);
+                    this.mapClickTimer = setTimeout(() => this.showMapInfoPopup(e.latlng), 220);
+                });
+                this.map.on('dblclick', e => {
+                    clearTimeout(this.mapClickTimer);
+                    this.showAdd(e.latlng);
+                });
                 this.locateMe();
             },
 
@@ -266,46 +279,157 @@
 
             getReverseGeocoding: async function(lat, lng) {
                 try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
-                        headers: {
-                            'User-Agent': 'POIMapApp/1.0'
-                        }
+                    const landmarkName = await this.getNearbyLandmarkName(lat, lng);
+                    if(landmarkName) return landmarkName;
+
+                    const params = new URLSearchParams({
+                        lat: String(lat),
+                        lon: String(lng),
+                        limit: '1',
+                        lang: 'it'
                     });
+                    const response = await fetch(`https://photon.komoot.io/reverse?${params.toString()}`);
                     
                     if(!response.ok) {
-                        console.log('Nominatim error:', response.status);
+                        console.log('Photon reverse error:', response.status);
                         return '';
                     }
                     
                     const data = await response.json();
-                    console.log('Reverse geocoding data:', data);
+                    console.log('Photon reverse data:', data);
+                    const feature = data.features?.[0];
+                    const props = feature?.properties || {};
                     
-                    const address = data.address || {};
-                    
-                    // Prova gli address properties specificati
-                    if(address.monument) return address.monument;
-                    if(address.attraction) return address.attraction;
-                    if(address.historic) return address.historic;
-                    if(address.building) return address.building;
-                    if(address.amenity) return address.amenity;
-                    if(address.shop) return address.shop;
-                    if(address.road) return address.road;
-                    if(address.plaza) return address.plaza;
-                    if(address.village) return address.village;
-                    if(address.town) return address.town;
-                    if(address.city) return address.city;
-                    
-                    // Fallback a display_name
-                    if(data.display_name) {
-                        const parts = data.display_name.split(',');
-                        return parts[0].trim();
-                    }
+                    if(props.name) return props.name;
+                    if(props.street && props.housenumber) return `${props.street} ${props.housenumber}`;
+                    if(props.street) return props.street;
+                    if(props.city) return props.city;
+                    if(props.county) return props.county;
+                    if(props.state) return props.state;
+                    if(props.country) return props.country;
                     
                     return '';
                 } catch(e) {
                     console.log('Reverse geocoding error:', e);
                     return '';
                 }
+            },
+
+            showMapInfoPopup: async function(ll) {
+                let name = '';
+                try {
+                    name = await this.getReverseGeocoding(ll.lat, ll.lng);
+                } catch(e) {
+                    console.log('Map info popup error:', e);
+                }
+
+                if(!name) {
+                    name = `${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`;
+                }
+
+                const safeName = this.escapeHtml(name);
+                const wikiUrl = `https://it.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`;
+                const navUrl = `https://maps.google.com/?q=${ll.lat},${ll.lng}`;
+
+                const html = `
+                    <div style="font-family:'Inter',sans-serif;">
+                        <b style="font-size:16px;">${safeName}</b><br>
+                        <small style="color:#666;">Luogo rilevato sulla mappa</small>
+                        <div class="btn-grid">
+                            <a href="${navUrl}" target="_blank" class="popup-link link-nav">📍 Naviga</a>
+                            <a href="${wikiUrl}" target="_blank" class="popup-link link-wiki">📖 Wiki</a>
+                        </div>
+                    </div>
+                `;
+
+                L.popup().setLatLng(ll).setContent(html).openOn(this.map);
+            },
+
+            getNearbyLandmarkName: async function(lat, lng) {
+                try {
+                    const candidates = await this.fetchNearbyWikipediaResults(lat, lng);
+                    const preferred = candidates.find(candidate => this.isLikelyLandmarkTitle(candidate.title));
+                    return preferred?.title || candidates[0]?.title || '';
+                } catch(e) {
+                    console.log('Nearby landmark error:', e);
+                    return '';
+                }
+            },
+
+            fetchNearbyWikipediaResults: async function(lat, lng) {
+                const languages = ['it', 'fr', 'en'];
+                const requests = languages.map(async lang => {
+                    const params = new URLSearchParams({
+                        action: 'query',
+                        generator: 'geosearch',
+                        ggscoord: `${lat}|${lng}`,
+                        ggsradius: '200',
+                        ggslimit: '10',
+                        prop: 'coordinates',
+                        format: 'json',
+                        origin: '*'
+                    });
+
+                    try {
+                        const response = await fetch(`https://${lang}.wikipedia.org/w/api.php?${params.toString()}`);
+                        const data = await response.json();
+                        const pages = Object.values(data?.query?.pages || {});
+                        return pages.map(page => {
+                            const coords = page.coordinates?.[0];
+                            const pageLat = parseFloat(coords?.lat);
+                            const pageLng = parseFloat(coords?.lon);
+                            return {
+                                lang,
+                                title: page.title,
+                                lat: pageLat,
+                                lng: pageLng,
+                                distance: Number.isFinite(pageLat) && Number.isFinite(pageLng)
+                                    ? this.getDistance(lat, lng, pageLat, pageLng) * 1000
+                                    : Number.POSITIVE_INFINITY
+                            };
+                        }).filter(item => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+                    } catch {
+                        return [];
+                    }
+                });
+
+                const merged = (await Promise.all(requests)).flat();
+                const seen = new Set();
+                const ranked = merged
+                    .filter(item => item.distance <= 250)
+                    .sort((a, b) => {
+                        const aScore = (this.isLikelyLandmarkTitle(a.title) ? 0 : 1) * 100000 + a.distance;
+                        const bScore = (this.isLikelyLandmarkTitle(b.title) ? 0 : 1) * 100000 + b.distance;
+                        return aScore - bScore;
+                    })
+                    .filter(item => {
+                        const key = item.title.toLowerCase();
+                        if(seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+
+                return ranked;
+            },
+
+            isLikelyLandmarkTitle: function(title) {
+                const value = String(title || '').toLowerCase();
+                if(!value) return false;
+
+                const positivePatterns = [
+                    'chiesa', 'church', 'cattedrale', 'cathedral', 'basilica', 'abbazia', 'abbey',
+                    'castello', 'castle', 'chateau', 'château', 'forte', 'fort', 'torre', 'tower',
+                    'palazzo', 'palace', 'villa', 'monumento', 'monument', 'museo', 'museum',
+                    'santuario', 'sanctuary', 'duomo', 'teatro', 'theatre', 'theater',
+                    'ponte', 'bridge', 'piazza', 'square', 'parco', 'park', 'tempio', 'temple'
+                ];
+                const negativePatterns = [
+                    'comune di', 'provincia di', 'regione', 'fiume', 'via ', 'viale ', 'corso ',
+                    'strada ', 'route ', 'road ', 'street ', 'highway', 'autostrada'
+                ];
+
+                if(negativePatterns.some(pattern => value.includes(pattern))) return false;
+                return positivePatterns.some(pattern => value.includes(pattern));
             },
 
             showAdd: async function(ll) {
@@ -406,45 +530,338 @@
                 return R * c;
             },
 
-            search: async function() {
-                const q = document.getElementById('inp-search').value.trim();
+            escapeHtml: function(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            },
+
+            parseCoordinateQuery: function(query) {
+                const cleaned = query.trim().replace(/\s+/g, ' ');
+                if(!cleaned) return null;
+
+                let match = cleaned.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+                if(!match) return null;
+
+                let first = parseFloat(match[1]);
+                let second = parseFloat(match[2]);
+                if(Number.isNaN(first) || Number.isNaN(second)) return null;
+
+                let lat = first;
+                let lng = second;
+
+                if((lat < -90 || lat > 90) && (second >= -90 && second <= 90) && (first >= -180 && first <= 180)) {
+                    lat = second;
+                    lng = first;
+                }
+
+                if(lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+                return { lat, lng };
+            },
+
+            buildSearchVariants: function(query) {
+                const compact = query.trim().replace(/\s+/g, ' ');
+                const variants = [];
+                const seen = new Set();
+
+                const addVariant = (value) => {
+                    const cleaned = String(value || '').trim().replace(/\s+/g, ' ');
+                    if(!cleaned) return;
+                    const key = cleaned.toLowerCase();
+                    if(seen.has(key)) return;
+                    seen.add(key);
+                    variants.push(cleaned);
+                };
+
+                const ascii = compact
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/['’]/g, '')
+                    .replace(/[-/]+/g, ' ');
+
+                addVariant(compact);
+                addVariant(ascii);
+                addVariant(compact.replace(/[-/]+/g, ' '));
+
+                const stripped = ascii.replace(/\b(castello|chateau|château|castle|di|de|du|del|della|des)\b/gi, ' ');
+                addVariant(stripped);
+
+                const words = ascii.split(' ').filter(Boolean);
+                if(words.length > 1) {
+                    addVariant(words.join(' '));
+                    addVariant(words.slice(-2).join(' '));
+                }
+
+                return variants;
+            },
+
+            buildResultKey: function(result) {
+                return `${result.name}|${result.lat.toFixed(5)}|${result.lng.toFixed(5)}`;
+            },
+
+            fetchWikipediaResults: async function(query) {
+                const variants = this.buildSearchVariants(query).slice(0, 3);
+                const languages = ['it', 'fr', 'en'];
+                const requests = [];
+
+                languages.forEach(lang => {
+                    variants.forEach(currentQuery => {
+                        const params = new URLSearchParams({
+                            action: 'query',
+                            generator: 'search',
+                            gsrsearch: currentQuery,
+                            gsrlimit: '5',
+                            prop: 'coordinates',
+                            format: 'json',
+                            origin: '*'
+                        });
+                        requests.push(
+                            fetch(`https://${lang}.wikipedia.org/w/api.php?${params.toString()}`)
+                                .then(response => response.json())
+                                .then(data => ({ lang, data }))
+                                .catch(() => ({ lang, data: null }))
+                        );
+                    });
+                });
+
+                const responses = await Promise.all(requests);
+                const results = [];
+                const seen = new Set();
+
+                responses.forEach(({ lang, data }) => {
+                    const pages = data?.query?.pages || {};
+                    Object.values(pages).forEach(page => {
+                        const coords = page.coordinates?.[0];
+                        if(!coords) return;
+
+                        const lat = parseFloat(coords.lat);
+                        const lng = parseFloat(coords.lon);
+                        if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+                        const result = {
+                            name: page.title,
+                            subtitle: `Wikipedia (${lang.toUpperCase()})`,
+                            lat,
+                            lng,
+                            mapLink: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}`
+                        };
+
+                        const key = this.buildResultKey(result);
+                        if(seen.has(key)) return;
+                        seen.add(key);
+                        results.push(result);
+                    });
+                });
+
+                return results;
+            },
+
+            fetchPhotonResults: async function(query) {
+                const variants = this.buildSearchVariants(query).slice(0, 4);
+                const responses = await Promise.all(variants.map(async currentQuery => {
+                    const params = new URLSearchParams({
+                        q: currentQuery,
+                        limit: '8'
+                    });
+
+                    if(this.lastClickCoords) {
+                        params.set('lat', this.lastClickCoords.lat);
+                        params.set('lon', this.lastClickCoords.lng);
+                    }
+
+                    const response = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
+                    const data = await response.json();
+                    return data.features || [];
+                }));
+
+                const mergedFeatures = responses.flat();
+                const deduped = [];
+                const seen = new Set();
+
+                mergedFeatures.forEach(feature => {
+                    const props = feature.properties || {};
+                    const coords = feature.geometry?.coordinates || [];
+                    const key = `${props.osm_type || ''}:${props.osm_id || ''}:${coords[0] || ''}:${coords[1] || ''}`;
+                    if(seen.has(key)) return;
+                    seen.add(key);
+                    deduped.push(feature);
+                });
+
+                return deduped.map(feature => {
+                    const props = feature.properties || {};
+                    const coords = feature.geometry?.coordinates || [];
+                    const lat = parseFloat(coords[1]);
+                    const lng = parseFloat(coords[0]);
+                    const parts = [
+                        props.street,
+                        props.housenumber,
+                        props.city || props.county,
+                        props.state,
+                        props.country
+                    ].filter(Boolean);
+
+                    return {
+                        name: props.name || props.city || props.country || query,
+                        subtitle: parts.join(', ') || props.type || 'Risultato Photon',
+                        lat,
+                        lng,
+                        mapLink: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+                    };
+                }).filter(item => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+            },
+
+            fetchNominatimResults: async function(query) {
+                const variants = this.buildSearchVariants(query).slice(0, 3);
+                const responses = await Promise.all(variants.map(async currentQuery => {
+                    const params = new URLSearchParams({
+                        q: currentQuery,
+                        format: 'jsonv2',
+                        limit: '8',
+                        addressdetails: '1',
+                        'accept-language': 'it,fr,en'
+                    });
+
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
+                    return response.json();
+                }));
+
+                const merged = responses.flat();
+                const seen = new Set();
+
+                return merged.map(item => {
+                    const lat = parseFloat(item.lat);
+                    const lng = parseFloat(item.lon);
+                    const address = item.address || {};
+                    const name = item.name
+                        || address.city
+                        || address.town
+                        || address.village
+                        || address.municipality
+                        || query;
+                    const subtitle = [
+                        address.city || address.town || address.village || address.municipality,
+                        address.county,
+                        address.state,
+                        address.country
+                    ].filter(Boolean).join(', ') || item.type || 'Risultato Nominatim';
+
+                    return {
+                        name,
+                        subtitle,
+                        lat,
+                        lng,
+                        mapLink: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`
+                    };
+                }).filter(result => {
+                    if(!Number.isFinite(result.lat) || !Number.isFinite(result.lng)) return false;
+                    const key = this.buildResultKey(result);
+                    if(seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            },
+
+            renderSearchResults: function(results, emptyMessage='Nessun risultato trovato') {
                 const d = document.getElementById('search-results');
-                d.innerHTML = '';
-                if(q.length < 4) {
-                    d.innerHTML = '<p style="color:#aaa; font-size:13px;">Digita almeno 4 caratteri per cercare</p>';
+                if(!results.length) {
+                    d.innerHTML = `<p style="color:#888; font-size:13px;">${emptyMessage}</p>`;
                     return;
                 }
-                
+
+                d.innerHTML = results.map(result => {
+                    const safeName = this.escapeHtml(result.name);
+                    const safeSubtitle = this.escapeHtml(result.subtitle || '');
+                    const safeActionName = String(result.name || '').replace(/'/g, "\\'");
+                    const distText = result.distanceText ? ` <small style="color:#aaa;">(${this.escapeHtml(result.distanceText)})</small>` : '';
+                    const mapLink = result.mapLink ? `<a href="${result.mapLink}" target="_blank" class="action-btn" style="color:#007AFF;">🗺️</a>` : '';
+
+                    return `<div class="poi-card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="flex:1; cursor:pointer;" onclick="app.selectSearchResult('${safeActionName}', ${result.lat}, ${result.lng})">
+                            <b>${safeName}</b><br>
+                            <small style="color:#888;">${safeSubtitle}</small>${distText}
+                        </div>
+                        ${mapLink}
+                    </div>`;
+                }).join('');
+            },
+
+            search: function() {
+                const q = document.getElementById('inp-search').value.trim();
+                const d = document.getElementById('search-results');
+
+                clearTimeout(this.searchDebounceId);
+
+                if(!q) {
+                    d.innerHTML = '<p style="color:#888; font-size:13px;">Digita un luogo oppure coordinate come 41.9028, 12.4964</p>';
+                    return;
+                }
+
+                const coords = this.parseCoordinateQuery(q);
+                if(coords) {
+                    this.renderSearchResults([{
+                        name: `Coordinate ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`,
+                        subtitle: 'Posizione inserita manualmente',
+                        lat: coords.lat,
+                        lng: coords.lng,
+                        mapLink: `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=16/${coords.lat}/${coords.lng}`
+                    }]);
+                    return;
+                }
+
+                if(q.length < 3) {
+                    d.innerHTML = '<p style="color:#aaa; font-size:13px;">Digita almeno 3 caratteri per cercare</p>';
+                    return;
+                }
+
+                d.innerHTML = '<p style="color:#888; font-size:13px;">Ricerca in corso...</p>';
+                this.searchDebounceId = setTimeout(() => this.runPhotonSearch(q), 250);
+            },
+
+            runPhotonSearch: async function(query) {
+                const requestId = ++this.searchRequestId;
+                const d = document.getElementById('search-results');
+
                 try {
-                    // Ricerca su OpenStreetMap Nominatim su tutto il mondo
-                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=50`);
-                    let results = await response.json();
-                    
-                    console.log('Query:', q, 'Risultati trovati:', results.length);
-                    
-                    // Ordina i risultati per vicinanza alle coordinate cliccate
+                    const [wikiResults, photonResults, nominatimResults] = await Promise.all([
+                        this.fetchWikipediaResults(query),
+                        this.fetchPhotonResults(query),
+                        this.fetchNominatimResults(query)
+                    ]);
+                    if(requestId !== this.searchRequestId) return;
+
+                    const merged = [];
+                    const seen = new Set();
+
+                    [...wikiResults, ...photonResults, ...nominatimResults].forEach(result => {
+                        const key = this.buildResultKey(result);
+                        if(seen.has(key)) return;
+                        seen.add(key);
+                        merged.push(result);
+                    });
+
+                    let results = merged.map(result => {
+                        const distanceText = this.lastClickCoords
+                            ? `${this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, result.lat, result.lng).toFixed(1)} km`
+                            : '';
+                        return { ...result, distanceText };
+                    }).slice(0, 20);
+
                     if(this.lastClickCoords) {
                         results.sort((a, b) => {
-                            const distA = this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, parseFloat(a.lat), parseFloat(a.lon));
-                            const distB = this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, parseFloat(b.lat), parseFloat(b.lon));
+                            const distA = this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, a.lat, a.lng);
+                            const distB = this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, b.lat, b.lng);
                             return distA - distB;
                         });
-                        results = results.slice(0, 10); // Limita a 10 risultati
-                    } else {
-                        results = results.slice(0, 20); // Se non cliccato, mostra primi 20
                     }
-                    
-                    if(results.length > 0) {
-                        results.forEach(place => {
-                            const dist = this.lastClickCoords ? this.getDistance(this.lastClickCoords.lat, this.lastClickCoords.lng, parseFloat(place.lat), parseFloat(place.lon)).toFixed(1) : '';
-                            const distText = dist ? ` <small style="color:#aaa;">(${dist} km)</small>` : '';
-                            d.innerHTML += `<div class="poi-card" style="display:flex; justify-content:space-between; align-items:center;"><div style="flex:1; cursor: pointer;" onclick="app.selectSearchResult('${place.display_name.replace(/'/g, "\\'")}', ${place.lat}, ${place.lon})"><b>${place.display_name}</b><br><small style="color:#888;">${place.type}</small>${distText}</div><a href="https://www.openstreetmap.org/?lat=${place.lat}&lon=${place.lon}&zoom=16" target="_blank" class="action-btn" style="color:#007AFF;">🗺️</a></div>`;
-                        });
-                    } else {
-                        d.innerHTML = '<p style="color:#888; font-size:13px;">Nessun risultato trovato per "' + q + '"</p>';
-                    }
+
+                    this.renderSearchResults(results, `Nessun risultato trovato per "${this.escapeHtml(query)}"`);
                 } catch(e) {
-                    console.log('Errore ricerca:', e);
+                    console.log('Errore ricerca Photon:', e);
+                    if(requestId !== this.searchRequestId) return;
                     d.innerHTML = '<p style="color:#888; font-size:13px;">Errore nella ricerca. Riprova.</p>';
                 }
             },
