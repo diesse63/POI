@@ -890,7 +890,18 @@
             setActive: function(el) { el.classList.add('active'); },
             logout: function() { localStorage.removeItem('poi_user'); location.reload(); }
         };
-        window.onload = () => app.init();
+        window.onload = async () => {
+            app.init();
+
+            if('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('./sw.js');
+                    registration.update();
+                } catch(e) {
+                    console.log('Service worker registration error:', e);
+                }
+            }
+        };
     </script>
 </body>
 </html>
